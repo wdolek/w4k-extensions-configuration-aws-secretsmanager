@@ -3,9 +3,14 @@ using Amazon.SecretsManager.Model;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
-internal sealed class SecretsFetcher(IAmazonSecretsManager secretsManager)
+internal sealed class SecretsFetcher
 {
-    private readonly IAmazonSecretsManager _secretsManager = secretsManager;
+    private readonly IAmazonSecretsManager _secretsManager;
+
+    public SecretsFetcher(IAmazonSecretsManager secretsManager)
+    {
+        _secretsManager = secretsManager;
+    }
 
     public async Task<string> GetSecretString(string secretId, SecretVersionBase? version)
     {

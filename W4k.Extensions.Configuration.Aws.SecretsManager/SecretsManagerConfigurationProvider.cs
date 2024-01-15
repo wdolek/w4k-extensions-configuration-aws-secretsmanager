@@ -3,13 +3,16 @@ using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
-internal sealed class SecretsManagerConfigurationProvider(
-    IAmazonSecretsManager secretsManager,
-    SecretsManagerConfigurationProviderOptions options)
-    : ConfigurationProvider
+internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvider
 {
-    private readonly SecretsFetcher _secretsFetcher = new(secretsManager);
-    private readonly SecretsManagerConfigurationProviderOptions _options = options;
+    private readonly SecretsFetcher _secretsFetcher;
+    private readonly SecretsManagerConfigurationProviderOptions _options;
+
+    public SecretsManagerConfigurationProvider(IAmazonSecretsManager secretsManager, SecretsManagerConfigurationProviderOptions options)
+    {
+        _secretsFetcher = new SecretsFetcher(secretsManager);
+        _options = options;
+    }
 
     public override void Load()
     {

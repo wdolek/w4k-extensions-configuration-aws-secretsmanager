@@ -2,6 +2,7 @@
 
 ![W4k.Either Build](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/workflows/Build%20and%20test/badge.svg)
 [![NuGet Badge](https://buildstats.info/nuget/W4k.Extensions.Configuration.Aws.SecretsManager?includePreReleases=true)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
+[![CodeQL](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/security/code-scanning)
 
 Configuration provider for AWS SecretsManager.
 
@@ -90,7 +91,7 @@ builder.Configuration.AddSecretsManager(
 ```
 
 There's helper class [`SecretsProcessor<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/SecretsProcessor.cs) which
-can be used to simplify implementation of custom processor (by providing implementation of `IParser<T>` and `ITokenizer<T>`).
+can be used to simplify implementation of custom processor (by providing implementation of `ISecretStringParser<T>` and `IConfigurationTokenizer<T>`).
 
 #### Configuration key transformation
 
@@ -110,7 +111,7 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
-It is also possible to clear even default transofmrer by simply calling `Clear()` method.
+It is also possible to clear even default transformer by simply calling `Clear()` method.
 
 ```csharp
 builder.Configuration.AddSecretsManager(

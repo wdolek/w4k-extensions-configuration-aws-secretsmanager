@@ -2,12 +2,7 @@
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
-public interface ISecretStringParser<T>
-{
-    bool TryParse(string secret, out T jsonElement);
-}
-
-internal class JsonElementParser : ISecretStringParser<JsonElement>
+internal sealed class JsonElementParser : ISecretStringParser<JsonElement>
 {
     private static readonly JsonDocumentOptions DefaultJsonDocumentOptions = new()
     {
@@ -16,24 +11,24 @@ internal class JsonElementParser : ISecretStringParser<JsonElement>
         MaxDepth = 16,
     };
     
-    public bool TryParse(string secret, out JsonElement jsonElement)
+    public bool TryParse(string secret, out JsonElement secretValue)
     {
         if (!IsPossiblyJsonValue(secret))
         {
-            jsonElement = default;
+            secretValue = default;
             return false;
         }
 
         try
         {
             using var document = JsonDocument.Parse(secret, DefaultJsonDocumentOptions);
-            jsonElement = document.RootElement.Clone();
+            secretValue = document.RootElement.Clone();
 
             return true;
         }
         catch (JsonException)
         {
-            jsonElement = default;
+            secretValue = default;
             return false;
         }
     }

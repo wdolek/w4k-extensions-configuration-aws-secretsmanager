@@ -5,11 +5,6 @@ using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
-public interface IConfigurationTokenizer<in T>
-{
-    IEnumerable<KeyValuePair<string, string?>> Tokenize(T input, string prefix);
-}
-
 internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement>
 {
     [SuppressMessage("ReSharper", "CognitiveComplexity", Justification = "ಠ_ಠ")]
