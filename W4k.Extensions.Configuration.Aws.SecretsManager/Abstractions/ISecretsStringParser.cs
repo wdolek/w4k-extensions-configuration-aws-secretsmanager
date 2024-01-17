@@ -4,15 +4,15 @@
 /// Secret string parser.
 /// </summary>
 /// <typeparam name="T">Type of output data type.</typeparam>
-public interface ISecretStringParser<T>
+public interface ISecretsStringParser<T>
 {
     /// <summary>
     /// Try to parse secret string into output data type.
     /// </summary>
-    /// <param name="secret">Secret string value.</param>
+    /// <param name="secretString">Secrets string value.</param>
     /// <param name="secretValue">Secret value.</param>
     /// <returns>
     /// Returns <c>true</c> if secret string was successfully parsed into output data type; <c>false</c> otherwise.
     /// </returns>
-    bool TryParse(string secret, out T secretValue);
+    bool TryParse(string secretString, out T secretValue);
 }

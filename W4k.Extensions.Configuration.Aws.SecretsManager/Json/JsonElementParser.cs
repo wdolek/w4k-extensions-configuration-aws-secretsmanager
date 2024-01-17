@@ -2,7 +2,7 @@
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
-internal sealed class JsonElementParser : ISecretStringParser<JsonElement>
+internal sealed class JsonElementParser : ISecretsStringParser<JsonElement>
 {
     private static readonly JsonDocumentOptions DefaultJsonDocumentOptions = new()
     {

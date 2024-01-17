@@ -10,15 +10,13 @@ internal class SecretsManagerConfigurationSource : IConfigurationSource
 
     public SecretsManagerConfigurationSource(SecretsManagerConfigurationProviderOptions options, IAmazonSecretsManager client)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(client);
         _options = options;
         _client = client;
     }
 
     public IConfigurationProvider Build(IConfigurationBuilder builder)
     {
-        return new SecretsManagerConfigurationProvider(_client, _options);
+        return new SecretsManagerConfigurationProvider(_client, _options, isOptional: false);
     }
 }
 
@@ -63,7 +61,7 @@ public static class SecretsManagerConfigurationExtensions
 #if !NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(secretName);
 #endif
-        var providerOptions = new SecretsManagerConfigurationProviderOptions { SecretId = secretName };
+        var providerOptions = new SecretsManagerConfigurationProviderOptions { SecretName = secretName };
         configureOptions?.Invoke(providerOptions);
 
         return builder.Add(new SecretsManagerConfigurationSource(providerOptions, client));

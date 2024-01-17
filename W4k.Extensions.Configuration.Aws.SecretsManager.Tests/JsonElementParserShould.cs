@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using W4k.Extensions.Configuration.Aws.SecretsManager.Json;
+﻿using W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Tests;
 

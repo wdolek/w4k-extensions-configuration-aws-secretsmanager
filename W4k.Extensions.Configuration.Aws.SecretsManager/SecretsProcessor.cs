@@ -5,20 +5,6 @@ using W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 /// <summary>
-/// Secrets processor component, responsible for parsing and tokenizing secret string.
-/// </summary>
-public interface ISecretsProcessor
-{
-    /// <summary>
-    /// Processes secret string and returns configuration data.
-    /// </summary>
-    /// <param name="options">Secrets manager provider options.</param>
-    /// <param name="secretString">Content of secrets in string form.</param>
-    /// <returns>Dictionary of key-value configuration read from <paramref name="secretString"/>.</returns>
-    Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationProviderOptions options, string secretString);
-}
-
-/// <summary>
 /// Default secrets processor reference container.
 /// </summary>
 public static class SecretsProcessor
@@ -38,7 +24,7 @@ public static class SecretsProcessor
 /// </remarks>
 public class SecretsProcessor<T> : ISecretsProcessor
 {
-    private readonly ISecretStringParser<T> _parser;
+    private readonly ISecretsStringParser<T> _parser;
     private readonly IConfigurationTokenizer<T> _tokenizer;
 
     /// <summary>
@@ -49,7 +35,7 @@ public class SecretsProcessor<T> : ISecretsProcessor
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="parser"/> or <paramref name="tokenizer"/> is <c>null</c>.
     /// </exception>
-    public SecretsProcessor(ISecretStringParser<T> parser, IConfigurationTokenizer<T> tokenizer)
+    public SecretsProcessor(ISecretsStringParser<T> parser, IConfigurationTokenizer<T> tokenizer)
     {
         ArgumentNullException.ThrowIfNull(parser);
         ArgumentNullException.ThrowIfNull(tokenizer);
@@ -62,7 +48,7 @@ public class SecretsProcessor<T> : ISecretsProcessor
     {
         if (!_parser.TryParse(secretString, out var secretValue))
         {
-            throw new FormatException($"Secret {options.SecretId} cannot be parsed from JSON, object or array expected");
+            throw new FormatException($"Secret {options.SecretName} cannot be parsed from JSON, object or array expected");
         }
 
         var transformers = CollectionsMarshal.AsSpan(options.KeyTransformers);

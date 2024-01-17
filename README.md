@@ -47,14 +47,7 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     c =>
     {
-        // stage, `Current` or `Previous`
-        c.Version = StagedSecretVersion.Current;
-
-        // custom stage name
-        c.Version = new StagedSecretVersion { Stage = "dev" };
-        
-        // specific version ID
-        c.Version = new SecretVersion { Id = "v9000" };
+        c.Version = new SecretVersion { VersionId = "d6d1b757d46d449d1835a10869dfb9d1" };
     });
 ```
 
@@ -124,7 +117,7 @@ builder.Configuration.AddSecretsManager(
 
 ## Acknowledgements
 
-This library is _heavily_ inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager`.
+This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager`.
 
 ## Alternative approaches
 

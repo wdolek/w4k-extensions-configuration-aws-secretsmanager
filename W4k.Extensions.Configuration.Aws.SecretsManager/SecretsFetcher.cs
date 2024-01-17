@@ -12,24 +12,29 @@ internal sealed class SecretsFetcher
         _secretsManager = secretsManager;
     }
 
-    public async Task<string> GetSecretString(string secretId, SecretVersionBase? version)
+    public async Task<SecretValue> GetSecret(string secretId, SecretVersion? version, CancellationToken cancellationToken)
     {
         var request = CreateRequest(secretId, version);
         try
         {
-            var response = await _secretsManager.GetSecretValueAsync(request).ConfigureAwait(false);
+            var response = await _secretsManager.GetSecretValueAsync(request, cancellationToken).ConfigureAwait(false);
 
             if (response.SecretString is not null)
             {
-                return response.SecretString;
+                return new(response.SecretString, response.VersionId);
             }
 
             if (response.SecretBinary is not null)
             {
                 using var reader = new StreamReader(response.SecretBinary, leaveOpen: false);
+#if NET8_0_OR_GREATER
+                var encodedString = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+#else
                 var encodedString = await reader.ReadToEndAsync().ConfigureAwait(false);
+#endif
+                var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
 
-                return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
+                return new(secretString, response.VersionId);
             }
 
             throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary");
@@ -44,23 +49,38 @@ internal sealed class SecretsFetcher
         }
     }
 
-    private static GetSecretValueRequest CreateRequest(string secretId, SecretVersionBase? version)
+    private static GetSecretValueRequest CreateRequest(string secretId, SecretVersion? version)
     {
         var request = new GetSecretValueRequest
         {
             SecretId = secretId,
         };
 
-        switch (version)
+        if (version is not null)
         {
-            case SecretVersion secretVersion:
-                request.VersionId = secretVersion.Id;
-                break;
-            case StagedSecretVersion stagedSecretVersion:
-                request.VersionStage = stagedSecretVersion.Stage;
-                break;
+            if (!string.IsNullOrEmpty(version.VersionId))
+            {
+                request.VersionId = version.VersionId;
+            }
+            
+            if (!string.IsNullOrEmpty(version.VersionStage))
+            {
+                request.VersionStage = version.VersionStage;
+            }
         }
 
         return request;
     }
+}
+
+internal class SecretValue
+{
+    public SecretValue(string value, string versionId)
+    {
+        Value = value;
+        VersionId = versionId;
+    }
+
+    public string Value { get; }
+    public string VersionId { get; }
 }
