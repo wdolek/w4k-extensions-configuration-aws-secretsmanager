@@ -132,7 +132,7 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     c => 
     {
-        c.ConfigurationWatcher = new PeriodicConfigurationWatcher(TimeSpan.FromMinutes(5)); // implements `IConfigurationWatcher`
+        c.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5)); // implements `IConfigurationWatcher`
     });
 ```
 
