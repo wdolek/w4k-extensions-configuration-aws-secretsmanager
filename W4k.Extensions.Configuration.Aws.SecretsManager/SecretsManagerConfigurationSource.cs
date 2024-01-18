@@ -5,19 +5,24 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 internal class SecretsManagerConfigurationSource : IConfigurationSource
 {
-    private readonly SecretsManagerConfigurationProviderOptions _options;
-    private readonly IAmazonSecretsManager _client;
+    private readonly bool _isOptional;
 
-    public SecretsManagerConfigurationSource(SecretsManagerConfigurationProviderOptions options, IAmazonSecretsManager client)
+    public SecretsManagerConfigurationSource(
+        SecretsManagerConfigurationProviderOptions options,
+        IAmazonSecretsManager client,
+        bool isOptional)
     {
-        _options = options;
-        _client = client;
+        Options = options;
+        SecretsManager = client;
+
+        _isOptional = isOptional;
     }
 
-    public IConfigurationProvider Build(IConfigurationBuilder builder)
-    {
-        return new SecretsManagerConfigurationProvider(_client, _options, isOptional: false);
-    }
+    public SecretsManagerConfigurationProviderOptions Options { get; }
+    public IAmazonSecretsManager SecretsManager { get; }
+
+    public IConfigurationProvider Build(IConfigurationBuilder builder) =>
+        new SecretsManagerConfigurationProvider(this, _isOptional);
 }
 
 /// <summary>
@@ -33,15 +38,17 @@ public static class SecretsManagerConfigurationExtensions
     /// </remarks>
     /// <param name="builder">Configuration builder.</param>
     /// <param name="secretName">Secret name or ID.</param>
-    /// <param name="configureOptions">Configure options callback.</param>
+    /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
+    /// <param name="isOptional">Defines the configuration provider's response when a server loading error occurs. If set to false, the error is propagated. If set to true, the error is ignored and no settings are loaded from the AWS Secrets Manager Configuration.</param>
     /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         string secretName,
-        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
+        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null,
+        bool isOptional = false)
     {
         var client = new AmazonSecretsManagerClient();
-        return builder.AddSecretsManager(secretName, client, configureOptions);
+        return builder.AddSecretsManager(secretName, client, configureOptions, isOptional);
     }
 
     /// <summary>
@@ -50,20 +57,22 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="builder">Configuration builder.</param>
     /// <param name="secretName">Secret name or ID.</param>
     /// <param name="client">AWS Secrets Manager client.</param>
-    /// <param name="configureOptions">Configure options callback.</param>
+    /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
+    /// <param name="isOptional">Defines the configuration provider's response when a server loading error occurs. If set to false, the error is propagated. If set to true, the error is ignored and no settings are loaded from the AWS Secrets Manager Configuration.</param>
     /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         string secretName,
         IAmazonSecretsManager client,
-        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
+        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null,
+        bool isOptional = false)
     {
-#if !NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(secretName);
-#endif
+        ArgumentNullException.ThrowIfNull(client);
+        
         var providerOptions = new SecretsManagerConfigurationProviderOptions { SecretName = secretName };
         configureOptions?.Invoke(providerOptions);
 
-        return builder.Add(new SecretsManagerConfigurationSource(providerOptions, client));
+        return builder.Add(new SecretsManagerConfigurationSource(providerOptions, client, isOptional));
     }
 }

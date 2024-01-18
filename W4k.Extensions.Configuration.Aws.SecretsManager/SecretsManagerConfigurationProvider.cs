@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Amazon.SecretsManager;
 using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
@@ -7,21 +6,18 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, IConfigurationRefresher
 {
     private static readonly TimeSpan UnhandledExceptionDelay = TimeSpan.FromSeconds(5);
-    
-    private readonly SecretFetcher _secretFetcher;
+
     private readonly SecretsManagerConfigurationProviderOptions _options;
+    private readonly SecretFetcher _secretFetcher;
     private readonly bool _isOptional;
 
     private int _refreshInProgress;
     private string? _currentSecretVersionId;
 
-    public SecretsManagerConfigurationProvider(
-        IAmazonSecretsManager secretsManager,
-        SecretsManagerConfigurationProviderOptions options,
-        bool isOptional)
+    public SecretsManagerConfigurationProvider(SecretsManagerConfigurationSource source, bool isOptional)
     {
-        _secretFetcher = new SecretFetcher(secretsManager);
-        _options = options;
+        _options = source.Options;
+        _secretFetcher = new SecretFetcher(source.SecretsManager);
         _isOptional = isOptional;
     }
     

@@ -7,7 +7,7 @@ public class SecretsManagerConfigurationProviderOptions
 {
     private string _keyPrefix = "";
     private ISecretProcessor _processor = SecretsProcessor.Json;
-    private StartupOptions _startupOptions = new StartupOptions();
+    private StartupOptions _startupOptions = new();
 
     /// <summary>
     /// Gets or sets secret name (or its complete ARN) to fetch.
