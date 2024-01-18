@@ -3,20 +3,27 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// <summary>
 /// Configuration of <see cref="SecretsManagerConfigurationProvider"/>.
 /// </summary>
-public class SecretsManagerConfigurationProviderOptions
+public sealed class SecretsManagerConfigurationProviderOptions
 {
-    private string _keyPrefix = "";
-    private ISecretProcessor _processor = SecretsProcessor.Json;
+    private string _configKeyPrefix = "";
+    private ISecretProcessor _secretProcessor = SecretsProcessor.Json;
     private StartupOptions _startupOptions = new();
 
     /// <summary>
-    /// Gets or sets secret name (or its complete ARN) to fetch.
+    /// Initializes new instance of <see cref="SecretsManagerConfigurationProviderOptions"/>.
     /// </summary>
-#if NET8_0_OR_GREATER
-    public required string SecretName { get; init; }
-#else
-    public string SecretName { get; init; } = null!;
-#endif
+    /// <param name="secretName">Secret name (or its complete ARN) to fetch.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretName"/> is <see langword="null"/>.</exception>
+    public SecretsManagerConfigurationProviderOptions(string secretName)
+    {
+        ArgumentNullException.ThrowIfNull(secretName);
+        SecretName = secretName;
+    }
+
+    /// <summary>
+    /// Gets secret name (or its complete ARN) to fetch.
+    /// </summary>
+    public string SecretName { get; }
 
     /// <summary>
     /// Gets or sets secret version to fetch, if not provided, latest version of secret is fetched.
@@ -26,26 +33,28 @@ public class SecretsManagerConfigurationProviderOptions
     /// <summary>
     /// Gets or sets configuration key prefix, if not set, secret properties are placed directly in configuration root.
     /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when value is <see langword="null"/>.</exception>
     public string ConfigurationKeyPrefix
     {
-        get { return _keyPrefix; }
+        get { return _configKeyPrefix; }
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            _keyPrefix = value;
+            _configKeyPrefix = value;
         }
     }
 
     /// <summary>
     /// Gets or sets secrets processor (parsing, tokenizing), default is <see cref="SecretsProcessor.Json"/>.
     /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when value is <see langword="null"/>.</exception>
     public ISecretProcessor Processor
     {
-        get { return _processor; }
+        get { return _secretProcessor; }
         set
         {
-            ArgumentNullException.ThrowIfNull(_processor);
-            _processor = value;
+            ArgumentNullException.ThrowIfNull(_secretProcessor);
+            _secretProcessor = value;
         }
     }
 
@@ -67,6 +76,7 @@ public class SecretsManagerConfigurationProviderOptions
     /// <summary>
     /// Gets options of initial secret load (at startup).
     /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when value is <see langword="null"/>.</exception>
     public StartupOptions Startup
     {
         get { return _startupOptions; }
@@ -81,7 +91,7 @@ public class SecretsManagerConfigurationProviderOptions
 /// <summary>
 /// Representation of secret version.
 /// </summary>
-public class SecretVersion
+public sealed class SecretVersion
 {
     /// <summary>
     /// Gets or sets secret version ID.
@@ -97,13 +107,31 @@ public class SecretVersion
 /// <summary>
 /// Options of initial secret fetch.
 /// </summary>
-public class StartupOptions
+public sealed class StartupOptions
 {
+    private TimeSpan _timeout = TimeSpan.FromSeconds(60);
+
     /// <summary>
-    /// The timeout for the initial fetch of the secret.
+    /// The timeout for the initial fetch of the secret, default is 60 seconds.
     /// </summary>
     /// <remarks>
-    /// When provider fails to fetch secret in the given time and secrets source is not optional, exception is thrown.
+    /// When provider fails to fetch secret in the given time and configuration source is not optional, exception is thrown.
     /// </remarks>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when value is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
+    public TimeSpan Timeout
+    {
+        get { return _timeout; }
+        set
+        {
+#if NET8_0_OR_GREATER
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
+#else
+            if (value <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value));
+            }
+#endif
+            _timeout = value;
+        }
+    }
 }

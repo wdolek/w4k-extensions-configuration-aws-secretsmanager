@@ -70,7 +70,7 @@ public static class SecretsManagerConfigurationExtensions
         ArgumentNullException.ThrowIfNull(secretName);
         ArgumentNullException.ThrowIfNull(client);
         
-        var providerOptions = new SecretsManagerConfigurationProviderOptions { SecretName = secretName };
+        var providerOptions = new SecretsManagerConfigurationProviderOptions(secretName);
         configureOptions?.Invoke(providerOptions);
 
         return builder.Add(new SecretsManagerConfigurationSource(providerOptions, client, isOptional));

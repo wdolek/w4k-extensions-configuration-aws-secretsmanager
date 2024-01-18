@@ -73,7 +73,7 @@ internal sealed class SecretFetcher
     }
 }
 
-internal class SecretValue
+internal sealed class SecretValue
 {
     public SecretValue(string versionId, string value)
     {

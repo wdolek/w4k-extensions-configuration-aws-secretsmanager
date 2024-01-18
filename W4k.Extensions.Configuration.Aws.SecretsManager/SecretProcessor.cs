@@ -32,9 +32,7 @@ public class SecretProcessor<T> : ISecretProcessor
     /// </summary>
     /// <param name="parser">Secret string parser.</param>
     /// <param name="tokenizer">Configuration tokenizer.</param>
-    /// <exception cref="ArgumentNullException">
-    /// Thrown when <paramref name="parser"/> or <paramref name="tokenizer"/> is <c>null</c>.
-    /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="parser"/> or <paramref name="tokenizer"/> is <see langword="null"/>.</exception>
     public SecretProcessor(ISecretStringParser<T> parser, IConfigurationTokenizer<T> tokenizer)
     {
         ArgumentNullException.ThrowIfNull(parser);
@@ -44,9 +42,7 @@ public class SecretProcessor<T> : ISecretProcessor
     }
 
     /// <inheritdoc/>
-    /// <exception cref="ArgumentNullException">
-    /// Thrown when <paramref name="options"/> or <paramref name="secretString"/> is <c>null</c>.
-    /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="secretString"/> is <see langword="null"/>.</exception>
     public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationProviderOptions options, string secretString)
     {
         ArgumentNullException.ThrowIfNull(options);
