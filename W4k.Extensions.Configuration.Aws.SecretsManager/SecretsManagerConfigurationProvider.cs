@@ -8,7 +8,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 {
     private static readonly TimeSpan UnhandledExceptionDelay = TimeSpan.FromSeconds(5);
     
-    private readonly SecretsFetcher _secretsFetcher;
+    private readonly SecretFetcher _secretFetcher;
     private readonly SecretsManagerConfigurationProviderOptions _options;
     private readonly bool _isOptional;
 
@@ -20,7 +20,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
         SecretsManagerConfigurationProviderOptions options,
         bool isOptional)
     {
-        _secretsFetcher = new SecretsFetcher(secretsManager);
+        _secretFetcher = new SecretFetcher(secretsManager);
         _options = options;
         _isOptional = isOptional;
     }
@@ -71,7 +71,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
         try
         {
-            var secret = await _secretsFetcher.GetSecret(_options.SecretName, _options.Version, cancellationToken).ConfigureAwait(false);
+            var secret = await _secretFetcher.GetSecret(_options.SecretName, _options.Version, cancellationToken).ConfigureAwait(false);
             if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
             {
                 return;
@@ -89,7 +89,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        var secret = await _secretsFetcher.GetSecret(_options.SecretName, _options.Version, cancellationToken).ConfigureAwait(false);
+        var secret = await _secretFetcher.GetSecret(_options.SecretName, _options.Version, cancellationToken).ConfigureAwait(false);
         SetData(
             versionId: secret.VersionId, 
             data: _options.Processor.GetConfigurationData(_options, secret.Value));

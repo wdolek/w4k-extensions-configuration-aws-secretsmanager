@@ -6,7 +6,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public class SecretsManagerConfigurationProviderOptions
 {
     private string _keyPrefix = "";
-    private ISecretsProcessor _processor = SecretsProcessor.Json;
+    private ISecretProcessor _processor = SecretsProcessor.Json;
     private StartupOptions _startupOptions = new StartupOptions();
 
     /// <summary>
@@ -39,7 +39,7 @@ public class SecretsManagerConfigurationProviderOptions
     /// <summary>
     /// Gets or sets secrets processor (parsing, tokenizing), default is <see cref="SecretsProcessor.Json"/>.
     /// </summary>
-    public ISecretsProcessor Processor
+    public ISecretProcessor Processor
     {
         get { return _processor; }
         set
@@ -53,6 +53,8 @@ public class SecretsManagerConfigurationProviderOptions
     /// Gets list of configuration key transformers applied after tokenization.
     /// </summary>
     /// <remarks>
+    /// Transformers are applied in the order they are added to the list.
+    /// Result of previous transformer is input for the next one.
     /// By default, only <see cref="KeyDelimiterTransformer"/> is present.
     /// </remarks>
     public List<IConfigurationKeyTransformer> KeyTransformers { get; } = new() { new KeyDelimiterTransformer() };

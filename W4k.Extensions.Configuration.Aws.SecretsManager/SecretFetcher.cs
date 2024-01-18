@@ -3,11 +3,11 @@ using Amazon.SecretsManager.Model;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
-internal sealed class SecretsFetcher
+internal sealed class SecretFetcher
 {
     private readonly IAmazonSecretsManager _secretsManager;
 
-    public SecretsFetcher(IAmazonSecretsManager secretsManager)
+    public SecretFetcher(IAmazonSecretsManager secretsManager)
     {
         _secretsManager = secretsManager;
     }
@@ -75,7 +75,7 @@ internal sealed class SecretsFetcher
 
 internal class SecretValue
 {
-    public SecretValue(string value, string versionId)
+    public SecretValue(string versionId, string value)
     {
         Value = value;
         VersionId = versionId;

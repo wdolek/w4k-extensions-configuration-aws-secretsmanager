@@ -12,30 +12,30 @@ public static class SecretsProcessor
     /// <summary>
     /// Processor of JSON secrets.
     /// </summary>
-    public static readonly ISecretsProcessor Json =
-        new SecretsProcessor<JsonElement>(
+    public static readonly ISecretProcessor Json =
+        new SecretProcessor<JsonElement>(
             new JsonElementParser(), 
             new JsonElementTokenizer());
 }
 
 /// <inheritdoc/>
 /// <remarks>
-/// This is helper class to simplify creation of custom secrets processor, but it's not required to use it.
+/// Helper class to simplify creation of custom secrets processor.
 /// </remarks>
-public class SecretsProcessor<T> : ISecretsProcessor
+public class SecretProcessor<T> : ISecretProcessor
 {
-    private readonly ISecretsStringParser<T> _parser;
+    private readonly ISecretStringParser<T> _parser;
     private readonly IConfigurationTokenizer<T> _tokenizer;
 
     /// <summary>
-    /// Initializes new instance of <see cref="SecretsProcessor{T}"/>.
+    /// Initializes new instance of <see cref="SecretProcessor{T}"/>.
     /// </summary>
     /// <param name="parser">Secret string parser.</param>
     /// <param name="tokenizer">Configuration tokenizer.</param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="parser"/> or <paramref name="tokenizer"/> is <c>null</c>.
     /// </exception>
-    public SecretsProcessor(ISecretsStringParser<T> parser, IConfigurationTokenizer<T> tokenizer)
+    public SecretProcessor(ISecretStringParser<T> parser, IConfigurationTokenizer<T> tokenizer)
     {
         ArgumentNullException.ThrowIfNull(parser);
         ArgumentNullException.ThrowIfNull(tokenizer);
@@ -44,11 +44,17 @@ public class SecretsProcessor<T> : ISecretsProcessor
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="options"/> or <paramref name="secretString"/> is <c>null</c>.
+    /// </exception>
     public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationProviderOptions options, string secretString)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(secretString);
+        
         if (!_parser.TryParse(secretString, out var secretValue))
         {
-            throw new FormatException($"Secret {options.SecretName} cannot be parsed from JSON, object or array expected");
+            throw new FormatException($"Secret {options.SecretName} cannot be parsed, have you used appropriate secrets processor?");
         }
 
         var transformers = CollectionsMarshal.AsSpan(options.KeyTransformers);

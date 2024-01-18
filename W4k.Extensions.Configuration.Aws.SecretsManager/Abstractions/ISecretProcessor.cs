@@ -1,9 +1,9 @@
 ﻿namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 /// <summary>
-/// Secrets processor component, responsible for parsing and tokenizing secret string.
+/// Secret string processor, responsible for parsing and tokenizing secret string.
 /// </summary>
-public interface ISecretsProcessor
+public interface ISecretProcessor
 {
     /// <summary>
     /// Processes secret string and returns configuration data.

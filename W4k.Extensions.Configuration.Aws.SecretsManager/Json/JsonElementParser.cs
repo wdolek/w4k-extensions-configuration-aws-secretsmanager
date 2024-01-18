@@ -2,7 +2,7 @@
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
-internal sealed class JsonElementParser : ISecretsStringParser<JsonElement>
+internal sealed class JsonElementParser : ISecretStringParser<JsonElement>
 {
     private static readonly JsonDocumentOptions DefaultJsonDocumentOptions = new()
     {
@@ -11,9 +11,9 @@ internal sealed class JsonElementParser : ISecretsStringParser<JsonElement>
         MaxDepth = 16,
     };
     
-    public bool TryParse(string secret, out JsonElement secretValue)
+    public bool TryParse(string secretString, out JsonElement secretValue)
     {
-        if (!IsPossiblyJsonValue(secret))
+        if (!IsPossiblyJsonValue(secretString))
         {
             secretValue = default;
             return false;
@@ -21,7 +21,7 @@ internal sealed class JsonElementParser : ISecretsStringParser<JsonElement>
 
         try
         {
-            using var document = JsonDocument.Parse(secret, DefaultJsonDocumentOptions);
+            using var document = JsonDocument.Parse(secretString, DefaultJsonDocumentOptions);
             secretValue = document.RootElement.Clone();
 
             return true;
@@ -41,6 +41,9 @@ internal sealed class JsonElementParser : ISecretsStringParser<JsonElement>
             return false;
         }
 
-        return (secretSpan[0] == '{' && secretSpan[^1] == '}') || (secretSpan[0] == '[' && secretSpan[^1] == ']');
+        var startChar = secretSpan[0];
+        var endChar = secretSpan[^1];
+
+        return (startChar == '{' && endChar == '}') || (startChar == '[' && endChar == ']');
     }
 }
