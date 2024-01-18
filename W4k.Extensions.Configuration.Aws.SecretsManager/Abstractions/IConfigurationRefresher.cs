@@ -6,10 +6,15 @@
 public interface IConfigurationRefresher
 {
     /// <summary>
-    /// Gets name of configuration provider, typically it's secret name.
+    /// Gets configuration provider options.
     /// </summary>
-    string Name { get; }
-    
+    SecretsManagerConfigurationProviderOptions Options { get; }
+
+    /// <summary>
+    /// Gets whether configuration source is optional.
+    /// </summary>
+    bool IsOptional { get; }
+
     /// <summary>
     /// Invoke refresh of configuration.
     /// </summary>
