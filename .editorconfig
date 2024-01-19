@@ -365,4 +365,6 @@ dotnet_naming_style.s_camelcase.required_suffix =
 dotnet_naming_style.s_camelcase.word_separator = 
 dotnet_naming_style.s_camelcase.capitalization = camel_case
 
-dotnet_diagnostic.CA1707.severity = none # Identifiers should not contain underscores
+# .NET Analyzers
+
+dotnet_diagnostic.IDE0290.severity = none # Use primary constructor
