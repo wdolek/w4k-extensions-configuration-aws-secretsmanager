@@ -45,9 +45,6 @@ public class SecretProcessor<T> : ISecretProcessor
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="secretString"/> is <see langword="null"/>.</exception>
     public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationProviderOptions options, string secretString)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(secretString);
-        
         if (!_parser.TryParse(secretString, out var secretValue))
         {
             throw new FormatException($"Secret {options.SecretName} cannot be parsed, have you used appropriate secrets processor?");
