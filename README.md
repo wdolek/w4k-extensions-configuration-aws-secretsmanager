@@ -18,9 +18,11 @@ dotnet add package W4k.Extensions.Configuration.Aws.SecretsManager
 var builder = WebApplication.CreateBuilder(args);
 
 // add AWS Secrets Manager Configuration Provider for specific secret
-builder.Configuration.AddSecretsManager("my-secret-secrets", c => c.ConfigurationKeyPrefix = "AppSecrets");
+builder.Configuration.AddSecretsManager(
+    "my-secret-secrets",
+    c => c.ConfigurationKeyPrefix = "AppSecrets");
 
-// bind using `ConfigurationKeyPrefix`
+// ... and then bind configuration using `ConfigurationKeyPrefix` = "AppSecrets"
 builder.Services
     .AddOptions<Secrets>()
     .BindConfiguration("AppSecrets");
@@ -29,9 +31,12 @@ builder.Services
 Additionally, you can pass `SecretsManagerClient` to the provider:
 
 ```csharp
-// passing custom AmazonSecretsManagerClient (e.g. with custom credentials)
+// passing custom `IAmazonSecretsManager` (e.g. with custom credentials)
 var client = new AmazonSecretsManagerClient(/* ... */);
-builder.Configuration.AddSecretsManager("my-secret-secrets", client, c => c.ConfigurationKeyPrefix = "AppSecrets");
+builder.Configuration.AddSecretsManager(
+    "my-secret-secrets",
+    client,
+    c => c.ConfigurationKeyPrefix = "AppSecrets");
 ```
 
 ## Configuration
@@ -39,7 +44,7 @@ builder.Configuration.AddSecretsManager("my-secret-secrets", client, c => c.Conf
 ### Optional secret
 
 When adding configuration source, it is mandatory by default - meaning if secret is not found or it's not possible to load it,
-exception will be thrown. To make it optional, set `IsOptional` to `true`:
+exception is thrown. To make it optional, set `IsOptional` to `true`:
 
 ```csharp
 builder.Configuration.AddSecretsManager("my-secret-secrets", isOptional: true);
@@ -60,8 +65,8 @@ builder.Configuration.AddSecretsManager(
 
 ### Configuration key prefix
 
-By default, all secret values will be added to the configuration root. To prevent collisions with other configuration,
-or to group secret values, it is possible to specify configuration key prefix as follows:
+By default, all secret values will be added to the configuration root. To prevent collisions with other configuration keys,
+or to group secret values for further binding, it is possible to specify configuration key prefix as follows:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
@@ -78,7 +83,7 @@ When binding your option type, make sure path is considered or that you bind to 
 ### Secret processing (parsing and tokenizing)
 
 By default AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
-In some cases, user may want to specify custom format, either more complex JSON object, or even XML document.
+In some cases, user may want to specify custom format, either complex JSON object or even XML document.
 
 In order to support such scenarios, it is possible to specify custom secret processor:
 
@@ -87,19 +92,20 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     c => 
     {
-        c.Processor = new MyCustomSecretProcessor(); // implements `ISecretsProcessor`
+        // implements `ISecretsProcessor`
+        c.Processor = new MyCustomSecretProcessor();
     });
 ```
 
 There's helper class [`SecretsProcessor<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/SecretsProcessor.cs) which
-can be used to simplify implementation of custom processor (by providing implementation of `ISecretStringParser<T>` and `IConfigurationTokenizer<T>`).
+can be used to simplify implementation of custom processor (by providing implementation of [`ISecretStringParser<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/ISecretStringParser.cs) and [`IConfigurationTokenizer<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/IConfigurationTokenizer.cs)).
 
 ### Configuration key transformation
 
 It is possible to hook configuration key transformation, which is used to transform tokenized configuration key.
 By default only [`KeyDelimiterTransformer`](W4k.Extensions.Configuration.Aws.SecretsManager/ConfigurationKeyTransformer.cs) is used.
 
-`KeyDelimiterTransformer` transforms `__` to proper configuration key delimiter, `:`.
+`KeyDelimiterTransformer` transforms "`__`" to configuration key delimiter, "`:`".
 
 To add custom transformation, use property `KeyTransformers`:
 
@@ -108,19 +114,15 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     c => 
     {
-        c.KeyDelimiterTransformer.Add(new MyCustomKeyTransformer()); // implements `IConfigurationKeyTransformer`
+        // implements `IConfigurationKeyTransformer`
+        c.KeyDelimiterTransformer.Add(new MyCustomKeyTransformer());
     });
 ```
 
 It is also possible to clear transformers by simply calling `Clear()` method.
 
 ```csharp
-builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
-    c => 
-    {
-        c.KeyDelimiterTransformer.Clear();
-    });
+c.KeyDelimiterTransformer.Clear();
 ```
 
 ### Refreshing secrets
@@ -132,13 +134,14 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     c => 
     {
-        c.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5)); // implements `IConfigurationWatcher`
+        // implements `IConfigurationWatcher`
+        c.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5));
     });
 ```
 
-Watcher won't be started when initial secret load fails.
+Watcher won't be started when initial load of secret fails.
 
-Be aware that requesting secret value from AWS Secrets Manager is not free. See [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for more details.
+Be aware that querying secret value from AWS Secrets Manager is not free. See [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for more details.
 
 ### Startup behavior
 
@@ -149,7 +152,7 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     c => 
     {
-        c.Startup.Timeout = TimeSpan.FromSeconds(15);
+        c.Startup.Timeout = TimeSpan.FromSeconds(42);
     });
 ```
 
@@ -161,7 +164,7 @@ This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager
 
 ## Alternative approaches
 
-When using AWS Fargate (ECS), you can configure Task Definition to use SecretsManager as a source of environment variables.
+When using AWS Fargate (ECS), you can configure Task Definition to use Secrets Manager as a source of environment variables.
 This approach is described in [Passing sensitive data to a container / Using Secrets Manager](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html).
 
 ## Alternative packages
