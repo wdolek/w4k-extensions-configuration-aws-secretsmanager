@@ -42,12 +42,9 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
 
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="refresher"/> is <see langword="null"/>.</exception>
     public void Start(IConfigurationRefresher refresher)
     {
         ThrowIfStarted(_timer);
-        ArgumentNullException.ThrowIfNull(refresher);
-
         _timer = new Timer(ExecuteRefresh, refresher, _interval, _interval);
     }
 
