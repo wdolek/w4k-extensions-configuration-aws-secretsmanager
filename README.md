@@ -136,6 +136,8 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
+Watcher won't be started when initial secret load fails.
+
 Be aware that requesting secret value from AWS Secrets Manager is not free. See [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for more details.
 
 ### Startup behavior
