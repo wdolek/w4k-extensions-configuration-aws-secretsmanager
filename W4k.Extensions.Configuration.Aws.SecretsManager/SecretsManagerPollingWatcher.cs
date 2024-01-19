@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -55,21 +54,14 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     [SuppressMessage("ReSharper", "ExplicitCallerInfoArgument", Justification = "Explicitly passing activity name")]
     private static void ExecuteRefresh(object? state)
     {
-        using var activity = Activity.Source.StartActivity("Refresh");
-
         var refresher = (IConfigurationRefresher)state!;
         try
         {
             refresher.RefreshAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-
-            activity?.AddEvent(new ActivityEvent("Refresh completed"));
-            activity?.SetStatus(ActivityStatusCode.Ok);
         }
-        catch(Exception e)
+        catch
         {
-            activity?.AddEvent(new ActivityEvent("Refresh failed"));
-            activity?.SetTag("Error", e.Message);
-            activity?.SetStatus(ActivityStatusCode.Error);
+            // no-op
         }
     }
     

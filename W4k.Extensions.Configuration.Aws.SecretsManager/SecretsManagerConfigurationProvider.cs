@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -31,7 +32,8 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
             var cts = new CancellationTokenSource(Options.Startup.Timeout);
             LoadAsync(cts.Token).ConfigureAwait(false).GetAwaiter().GetResult();
 
-            // start watching for changes; if initial load fails, watcher is not started
+            // start watching for changes (if enabled)
+            // NB! if load fails (exception is thrown) then watcher is not started
             Options.ConfigurationWatcher?.Start(this);
         }
         catch (ArgumentException)
@@ -59,6 +61,8 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {
+        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.RefreshActivityName);
+
         // return early if refresh is already in progress
         if (Interlocked.Exchange(ref _refreshInProgress, 1) == 1)
         {
@@ -70,12 +74,29 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
             var secret = await _secretFetcher.GetSecret(Options.SecretName, Options.Version, cancellationToken).ConfigureAwait(false);
             if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
             {
+                activity?
+                    .AddEvent(new ActivityEvent("Skip, no change"))
+                    .SetStatus(ActivityStatusCode.Ok);
+
                 return;
             }
 
             SetData(
                 versionId: secret.VersionId, 
                 data: Options.Processor.GetConfigurationData(Options, secret.Value));
+            
+            activity?
+                .AddEvent(new ActivityEvent("Refresh completed"))
+                .SetStatus(ActivityStatusCode.Ok);
+        }
+        catch(Exception e)
+        {
+            activity?
+                .AddEvent(new ActivityEvent("Refresh failed"))
+                .SetTag("Error", e.Message)
+                .SetStatus(ActivityStatusCode.Error);
+
+            throw;
         }
         finally
         {
@@ -85,10 +106,28 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        var secret = await _secretFetcher.GetSecret(Options.SecretName, Options.Version, cancellationToken).ConfigureAwait(false);
-        SetData(
-            versionId: secret.VersionId, 
-            data: Options.Processor.GetConfigurationData(Options, secret.Value));
+        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
+
+        try
+        {
+            var secret = await _secretFetcher.GetSecret(Options.SecretName, Options.Version, cancellationToken).ConfigureAwait(false);
+            SetData(
+                versionId: secret.VersionId, 
+                data: Options.Processor.GetConfigurationData(Options, secret.Value));
+
+            activity?
+                .AddEvent(new ActivityEvent("Load completed"))
+                .SetStatus(ActivityStatusCode.Ok);
+        }
+        catch (Exception e)
+        {
+            activity?
+                .AddEvent(new ActivityEvent("Load failed"))
+                .SetTag("Error", e.Message)
+                .SetStatus(ActivityStatusCode.Error);
+
+            throw;
+        }
     }
 
     private void SetData(string versionId, Dictionary<string, string?> data)
