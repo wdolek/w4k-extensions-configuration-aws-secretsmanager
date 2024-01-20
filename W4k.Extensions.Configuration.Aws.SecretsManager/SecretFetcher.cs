@@ -21,7 +21,7 @@ internal sealed class SecretFetcher
 
             if (response.SecretString is not null)
             {
-                return new(response.SecretString, response.VersionId);
+                return new(response.VersionId, response.SecretString);
             }
 
             if (response.SecretBinary is not null)
@@ -34,7 +34,7 @@ internal sealed class SecretFetcher
 #endif
                 var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
 
-                return new(secretString, response.VersionId);
+                return new(response.VersionId, secretString);
             }
 
             throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary");
