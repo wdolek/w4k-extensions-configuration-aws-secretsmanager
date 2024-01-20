@@ -46,7 +46,7 @@ public class SecretProcessor<T> : ISecretProcessor
     {
         if (!_parser.TryParse(secretString, out var secretValue))
         {
-            throw new FormatException($"Secret {options.SecretName} cannot be parsed, have you used appropriate secrets processor?");
+            throw new FormatException($"Secret '{options.SecretName}' cannot be parsed, have you used appropriate secrets processor?");
         }
 
         var transformers = CollectionsMarshal.AsSpan(options.KeyTransformers);
