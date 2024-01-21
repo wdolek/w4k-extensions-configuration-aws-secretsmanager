@@ -158,42 +158,6 @@ builder.Configuration.AddSecretsManager(
 
 If secret is not loaded within specified timeout **AND** source is not optional, exception will be thrown.
 
-## Diagnostics
-
-Library uses `ActivitySource` and `Activity` to provide information about _load_ and _refresh_ operations.
-To be able to see traces, it is necessary to listen to activity source named "`W4k.Extensions.Configuration.Aws.SecretsManager`".
-
-### Open Telemetry
-
-Using Open Telemetry package(s), it is possible to add tracing to your application following way:
-
-```csharp
-var otel = builder.Services.AddOpenTelemetry();
-otel.WithTracing(tracing => tracing
-    .AddSource(W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics.ActivityDescriptors.ActivitySourceName)
-    .AddConsoleExporter());
-```
-
-Since _Load_ happens before host is fully built, you won't see _Load_ activity this way. It is still possible to trace _Refresh_ operation though.
-
-### Activity listener
-
-With or without Open Telemetry, it is also possible to simply hook activity listener into your application.
-There's helper extension method to configure activity listener:
-
-```csharp
-var listener = new ActivityListener().ListenToSecretsManagerActivitySource(
-    startActivity => Console.WriteLine(startActivity.FormatStartActivity()),
-    stopActivity => Console.WriteLine(stopActivity.FormatStopActivity()));
-
-ActivitySource.AddActivityListener(listener);
-```
-
-Note that `FormatStartActivity()` and `FormatStopActivity()` are additional extensions for formatting `Activity` to string.
-It is not required to use those methods, it's up to caller how start/stop activities are processed.
-
-When listener is registered this way in very early stage of application, it is possible to see _Load_ activity as well.
-
 ## Acknowledgements
 
 This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager`.

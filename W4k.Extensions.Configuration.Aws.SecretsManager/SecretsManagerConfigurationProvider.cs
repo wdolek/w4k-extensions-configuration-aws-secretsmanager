@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
-using W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -61,8 +60,6 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {
-        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.RefreshActivityName);
-
         // return early if refresh is already in progress
         if (Interlocked.Exchange(ref _refreshInProgress, 1) == 1)
         {
@@ -74,28 +71,16 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
             var secret = await _secretFetcher.GetSecret(Options.SecretName, Options.Version, cancellationToken).ConfigureAwait(false);
             if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
             {
-                activity?
-                    .AddEvent(new ActivityEvent("Skip, no change"))
-                    .SetStatus(ActivityStatusCode.Ok);
-
                 return;
             }
 
             SetData(
                 versionId: secret.VersionId, 
                 data: Options.Processor.GetConfigurationData(Options, secret.Value));
-            
-            activity?
-                .AddEvent(new ActivityEvent("Refresh completed"))
-                .SetStatus(ActivityStatusCode.Ok);
         }
         catch(Exception e)
         {
-            activity?
-                .AddEvent(new ActivityEvent("Refresh failed"))
-                .SetTag("Error", e.Message)
-                .SetStatus(ActivityStatusCode.Error);
-
+            // TODO: log exception
             throw;
         }
         finally
@@ -106,26 +91,16 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
-
         try
         {
             var secret = await _secretFetcher.GetSecret(Options.SecretName, Options.Version, cancellationToken).ConfigureAwait(false);
             SetData(
                 versionId: secret.VersionId, 
                 data: Options.Processor.GetConfigurationData(Options, secret.Value));
-
-            activity?
-                .AddEvent(new ActivityEvent("Load completed"))
-                .SetStatus(ActivityStatusCode.Ok);
         }
         catch (Exception e)
         {
-            activity?
-                .AddEvent(new ActivityEvent("Load failed"))
-                .SetTag("Error", e.Message)
-                .SetStatus(ActivityStatusCode.Error);
-
+            // TODO: log exception
             throw;
         }
     }
