@@ -158,6 +158,25 @@ builder.Configuration.AddSecretsManager(
 
 If secret is not loaded within specified timeout **AND** source is not optional, exception will be thrown.
 
+### Logging
+
+It is possible to configure logging for the provider:
+
+```csharp
+builder.Configuration.AddSecretsManager(
+    "my-secret-secrets",
+    c => 
+    {
+        // using Microsoft.Extensions.Logging
+        c.LoggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
+    });
+```
+
+By default logging is disabled (by using `NullLoggerFactory`).
+
+Since logging happens during host build phase (before application is fully built), it's not possible to use final application logger.
+Perhaps you will need to configure logging twice - once for the provider and once for the application.
+
 ## Acknowledgements
 
 This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager`.

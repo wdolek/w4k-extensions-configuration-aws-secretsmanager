@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 /// <summary>
@@ -8,6 +11,7 @@ public sealed class SecretsManagerConfigurationProviderOptions
     private string _configKeyPrefix = "";
     private ISecretProcessor _secretProcessor = SecretsProcessor.Json;
     private StartupOptions _startupOptions = new();
+    private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
 
     /// <summary>
     /// Initializes new instance of <see cref="SecretsManagerConfigurationProviderOptions"/>.
@@ -84,6 +88,22 @@ public sealed class SecretsManagerConfigurationProviderOptions
         {
             ArgumentNullException.ThrowIfNull(value);
             _startupOptions = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets logger factory.
+    /// </summary>
+    /// <remarks>
+    /// By default, <see cref="NullLoggerFactory"/> is used.
+    /// </remarks>
+    public ILoggerFactory LoggerFactory
+    {
+        get { return _loggerFactory; }
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _loggerFactory = value;
         }
     }
 }

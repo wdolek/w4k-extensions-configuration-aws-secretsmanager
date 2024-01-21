@@ -5,8 +5,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 internal class SecretsManagerConfigurationSource : IConfigurationSource
 {
-    private readonly bool _isOptional;
-
     public SecretsManagerConfigurationSource(
         SecretsManagerConfigurationProviderOptions options,
         IAmazonSecretsManager client,
@@ -14,15 +12,16 @@ internal class SecretsManagerConfigurationSource : IConfigurationSource
     {
         Options = options;
         SecretsManager = client;
-
-        _isOptional = isOptional;
+        IsOptional = isOptional;
     }
+
 
     public SecretsManagerConfigurationProviderOptions Options { get; }
     public IAmazonSecretsManager SecretsManager { get; }
+    public bool IsOptional { get; }
 
     public IConfigurationProvider Build(IConfigurationBuilder builder) =>
-        new SecretsManagerConfigurationProvider(this, _isOptional);
+        new SecretsManagerConfigurationProvider(this);
 }
 
 /// <summary>
