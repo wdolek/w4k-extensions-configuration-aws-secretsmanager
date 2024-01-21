@@ -13,7 +13,7 @@ public static class ActivityExtensions
     /// <param name="activity">Activity to format.</param>
     /// <returns>Formatted activity start.</returns>
     public static string FormatStartActivity(this Activity activity) =>
-        $"[{activity.Id}] {activity.Source.Name}:{activity.OperationName} Started, at: {activity.StartTimeUtc:O}";
+        $"[{activity.StartTimeUtc:O}] {activity.Source.Name}:{activity.OperationName} Started";
     
     /// <summary>
     /// Helper method to format activity stop.
@@ -30,9 +30,9 @@ public static class ActivityExtensions
 
         return (hasEvent, hasError) switch
         {
-            (true, true) => $"[{activity.Id}] {activity.Source.Name}:{activity.OperationName} Stopped, duration: {activity.Duration}; {evt.Name}; Failed: {err.Value}",
-            (true, false) => $"[{activity.Id}] {activity.Source.Name}:{activity.OperationName} Stopped, duration: {activity.Duration}; {evt.Name}",
-            _ => $"[{activity.Id}] {activity.Source.Name}:{activity.OperationName} Stopped, duration: {activity.Duration}"
+            (true, true) => $"[{activity.StartTimeUtc:O}] {activity.Source.Name}:{activity.OperationName} Stopped, duration: {activity.Duration}; {evt.Name}; Failed: {err.Value}",
+            (true, false) => $"[{activity.StartTimeUtc:O}] {activity.Source.Name}:{activity.OperationName} Stopped, duration: {activity.Duration}; {evt.Name}",
+            _ => $"[{activity.StartTimeUtc:O}] {activity.Source.Name}:{activity.OperationName} Stopped, duration: {activity.Duration}"
         };
     }
 }
