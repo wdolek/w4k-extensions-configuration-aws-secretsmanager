@@ -50,5 +50,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: w4k-either-${{ github.event.inputs.version }}
+        name: w4k-extensions-configuration-aws-secretsmanager-${{ github.event.inputs.version }}
         path: artifacts/*.nupkg
