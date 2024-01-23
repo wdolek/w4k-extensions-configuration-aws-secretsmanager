@@ -139,9 +139,13 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
-Watcher won't be started when initial load of secret fails.
+Watcher won't be started when initial secret load failed.
 
-Be aware that querying secret value from AWS Secrets Manager is not free. See [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for more details.
+When refreshing secrets, use `IOptionsSnapshot<T>` or `IOptionsMonitor<T>` instead of just `IOptions<T>`.
+For more details about _options pattern_, see official documentation [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options).
+
+Please note that there are associated costs for retrieving secret values from AWS Secrets Manager.
+Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for further information.
 
 ### Startup behavior
 
