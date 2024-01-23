@@ -4,7 +4,7 @@ using Amazon.SecretsManager.Model;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
-namespace W4k.Extensions.Configuration.Aws.SecretsManager.Tests;
+namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretFetcherShould
 {
@@ -80,11 +80,61 @@ public class SecretFetcherShould
         var secretsManager = Substitute.For<IAmazonSecretsManager>();
         secretsManager
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new GetSecretValueResponse());
+
+        var secretFetcher = new SecretFetcher(secretsManager);
+
+        // act & assert
+        Assert.ThrowsAsync<SecretRetrievalException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
+    }    
+    
+    [Test]
+    public void ThrowIfSecretNotFound()
+    {
+        // arrange
+        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        secretsManager
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("Secret not found"));
 
         var secretFetcher = new SecretFetcher(secretsManager);
 
         // act & assert
         Assert.ThrowsAsync<SecretNotFoundException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task PassVersionParameters()
+    {
+        // arrange
+        var secretId = "secret123";
+        var versionId = "version9000";
+        var versionStage = "stage123";
+
+        var secretVersion = new SecretVersion
+        {
+            VersionId = versionId,
+            VersionStage = versionStage
+        };
+
+        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        secretsManager
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new GetSecretValueResponse { VersionId = "d6d1b757d46d449d1835a10869dfb9d1", SecretString = "L3_S3cr37" });
+
+        var secretFetcher = new SecretFetcher(secretsManager);
+
+        // act
+        await secretFetcher.GetSecret(secretId, secretVersion, CancellationToken.None);
+
+        // assert
+        await secretsManager
+            .Received()
+            .GetSecretValueAsync(
+                Arg.Is<GetSecretValueRequest>(
+                    r => r.SecretId == secretId
+                         && r.VersionId == versionId
+                         && r.VersionStage == versionStage),
+                Arg.Any<CancellationToken>());
     }
 }

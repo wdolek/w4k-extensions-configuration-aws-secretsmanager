@@ -1,6 +1,6 @@
 ﻿using W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
-namespace W4k.Extensions.Configuration.Aws.SecretsManager.Tests;
+namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class JsonElementParserShould
 {
@@ -30,17 +30,11 @@ public class JsonElementParserShould
         });
     }
 
-    [Test]
-    public void NotParseInvalidJsonValue()
+    [TestCaseSource(nameof(GenerateInvalidJsonValues))]
+    public void NotParseInvalidJsonValue(string input)
     {
-        var invalidSecret = """
-{
-    "key": Well, this doesn't really work as JSON, does it?
-}
-""";
-
         var parser = new JsonElementParser();
-        var result = parser.TryParse(invalidSecret, out _);
+        var result = parser.TryParse(input, out _);
 
         Assert.That(result, Is.False);
     }
@@ -54,5 +48,22 @@ public class JsonElementParserShould
         var result = parser.TryParse(invalidSecret, out _);
 
         Assert.That(result, Is.False);
+    }
+
+    public static IEnumerable<TestCaseData> GenerateInvalidJsonValues()
+    {
+        yield return new TestCaseData("");
+
+        yield return new TestCaseData("{");
+        yield return new TestCaseData("[");
+        yield return new TestCaseData("{]");
+        yield return new TestCaseData("  ]  ");
+
+        yield return new TestCaseData(
+            """
+            {
+                "key": Well, this doesn't really work as JSON, does it?
+            }
+            """);
     }
 }

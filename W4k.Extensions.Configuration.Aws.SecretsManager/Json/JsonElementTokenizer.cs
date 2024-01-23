@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text.Json;
 
 using Microsoft.Extensions.Configuration;
@@ -54,7 +55,7 @@ internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement
     {
         foreach (var property in element.EnumerateObject())
         {
-            var configKey = $"{prefix}{ConfigurationPath.KeyDelimiter}{property.Name}";
+            var configKey = ComposeKey(prefix, property.Name);
             foreach (var pair in Tokenize(property.Value, configKey))
             {
                 yield return pair;
@@ -67,7 +68,7 @@ internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement
         var idx = 0;
         foreach (var arrayItem in element.EnumerateArray())
         {
-            var configKey = $"{prefix}{ConfigurationPath.KeyDelimiter}{idx}";
+            var configKey = ComposeKey(prefix, idx);
             foreach (var pair in Tokenize(arrayItem, configKey))
             {
                 yield return pair;
@@ -76,4 +77,14 @@ internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement
             ++idx;
         }
     }
+    
+    private static string ComposeKey(string prefix, string key) =>
+        string.IsNullOrEmpty(prefix)
+            ? key
+            : $"{prefix}{ConfigurationPath.KeyDelimiter}{key}";
+
+    private static string ComposeKey(string prefix, int key) =>
+        string.IsNullOrEmpty(prefix)
+            ? key.ToString(NumberFormatInfo.InvariantInfo)
+            : $"{prefix}{ConfigurationPath.KeyDelimiter}{key}";
 }
