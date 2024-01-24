@@ -4,7 +4,13 @@
 [![NuGet Badge](https://buildstats.info/nuget/W4k.Extensions.Configuration.Aws.SecretsManager?includePreReleases=true)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
 [![CodeQL](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/security/code-scanning)
 
-Configuration provider for AWS Secrets Manager.
+Configuration provider for AWS Secrets Manager extension for `Microsoft.Extensions.Configuration`.
+
+Using this provider, you can load secrets from AWS Secrets Manager and bind them to your configuration classes, using
+all features of Options pattern (`IOptions<T>`).
+
+The provider supports **refreshing secrets** (by polling, but it's also possible to provide your own mechanism)
+and **custom secret processing** (which allows parsing formats other than JSON when using binary secrets).
 
 ## Installation
 
@@ -43,8 +49,8 @@ builder.Configuration.AddSecretsManager(
 
 ### Optional secret
 
-When adding configuration source, it is mandatory by default - meaning if secret is not found or it's not possible to load it,
-exception is thrown. To make it optional, set `IsOptional` to `true`:
+When adding a configuration source, it is mandatory by default - meaning if the secret is not found or it's not possible 
+to load it, an exception is thrown. To make it optional, set `isOptional` to `true`:
 
 ```csharp
 builder.Configuration.AddSecretsManager("my-secret-secrets", isOptional: true);
@@ -65,7 +71,7 @@ builder.Configuration.AddSecretsManager(
 
 ### Configuration key prefix
 
-By default, all secret values will be added to the configuration root. To prevent collisions with other configuration keys,
+By default, all the secret values will be added to the configuration root. To prevent collisions with other configuration keys,
 or to group secret values for further binding, it is possible to specify configuration key prefix as follows:
 
 ```csharp
@@ -83,7 +89,7 @@ When binding your option type, make sure path is considered or that you bind to 
 ### Secret processing (parsing and tokenizing)
 
 By default AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
-In some cases, user may want to specify custom format, either complex JSON object or even XML document.
+In some cases, a user may want to specify a custom format, either a complex JSON object or even an XML document.
 
 In order to support such scenarios, it is possible to specify custom secret processor:
 
@@ -102,7 +108,7 @@ can be used to simplify implementation of custom processor (by providing impleme
 
 ### Configuration key transformation
 
-It is possible to hook configuration key transformation, which is used to transform tokenized configuration key.
+It is possible to hook into the configuration key transformation, which is used to transform the tokenized configuration key.
 By default only [`KeyDelimiterTransformer`](W4k.Extensions.Configuration.Aws.SecretsManager/ConfigurationKeyTransformer.cs) is used.
 
 `KeyDelimiterTransformer` transforms "`__`" to configuration key delimiter, "`:`".
@@ -139,12 +145,12 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
-Watcher won't be started when initial secret load failed.
+The watcher won't be started if the initial secret load fails.
 
 When refreshing secrets, use `IOptionsSnapshot<T>` or `IOptionsMonitor<T>` instead of just `IOptions<T>`.
-For more details about _options pattern_, see official documentation [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options).
+For more details about _Options pattern_, see official documentation [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options).
 
-Please note that there are associated costs for retrieving secret values from AWS Secrets Manager.
+Please note that there is associated cost of retrieving secret values from AWS Secrets Manager.
 Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for further information.
 
 ### Startup behavior
@@ -160,7 +166,7 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
-If secret is not loaded within specified timeout **AND** source is not optional, exception will be thrown.
+If the secret is not loaded within the specified timeout **AND** the source is not optional, an exception will be thrown.
 
 ### Logging
 
@@ -178,7 +184,7 @@ builder.Configuration.AddSecretsManager(
 
 By default logging is disabled (by using `NullLoggerFactory`).
 
-Since logging happens during host build phase (before application is fully built), it's not possible to use final application logger.
+Since logging happens during the host build phase (before the application is fully built), it's not possible to use the final application logger.
 Perhaps you will need to configure logging twice - once for the provider and once for the application.
 
 ## Acknowledgements
