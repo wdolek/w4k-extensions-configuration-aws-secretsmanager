@@ -4,12 +4,12 @@
 [![NuGet Badge](https://buildstats.info/nuget/W4k.Extensions.Configuration.Aws.SecretsManager?includePreReleases=true)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
 [![CodeQL](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/security/code-scanning)
 
-Configuration provider for AWS Secrets Manager extension for `Microsoft.Extensions.Configuration`.
+Configuration provider using AWS Secrets Manager as source of data.
 
 Using this provider, you can load secrets from AWS Secrets Manager and bind them to your configuration classes, using
 all features of Options pattern (`IOptions<T>`).
 
-The provider supports **refreshing secrets** (by polling, but it's also possible to provide your own mechanism)
+The provider supports **refreshing secrets** (by polling, it's possible to provide your own mechanism)
 and **custom secret processing** (which allows parsing formats other than JSON when using binary secrets).
 
 ## Installation
@@ -34,7 +34,7 @@ builder.Services
     .BindConfiguration("AppSecrets");
 ```
 
-Additionally, you can pass `SecretsManagerClient` to the provider:
+Additionally, you can pass `IAmazonSecretsManager` to the provider:
 
 ```csharp
 // passing custom `IAmazonSecretsManager` (e.g. with custom credentials)
