@@ -24,10 +24,21 @@ public sealed class SecretsManagerConfigurationProviderOptions
         SecretName = secretName;
     }
 
+    internal SecretsManagerConfigurationProviderOptions(string secretName, bool isOptional)
+        : this(secretName)
+    {
+        IsOptional = isOptional;
+    }
+
     /// <summary>
     /// Gets secret name (or its complete ARN) to fetch.
     /// </summary>
     public string SecretName { get; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether secret is mandatory (throws when failed to load) or optional (silently ignores).
+    /// </summary>
+    public bool IsOptional { get; set; }
 
     /// <summary>
     /// Gets or sets secret version to fetch, if not provided, latest version of secret is fetched.

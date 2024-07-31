@@ -23,7 +23,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
     }
 
     public SecretsManagerConfigurationProviderOptions Options => _source.Options;
-    public bool IsOptional => _source.IsOptional;
+    public bool IsOptional => _source.Options.IsOptional;
 
     public override void Load()
     {
@@ -42,7 +42,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
         }
         catch
         {
-            if (IsOptional)
+            if (Options.IsOptional)
             {
                 return;
             }
