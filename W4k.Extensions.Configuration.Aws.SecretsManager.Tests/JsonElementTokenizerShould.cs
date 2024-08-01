@@ -41,7 +41,10 @@ public class JsonElementTokenizerShould
                     "Dentonite Toothpaste"
                 ],
                 "hasLicenseToKill": true,
-                "married": null
+                "married": null,
+                "permissions": {
+                    "kill": true
+                }
             }
             """;
 
@@ -54,7 +57,7 @@ public class JsonElementTokenizerShould
             .ToList();
 
         // assert
-        Assert.That(result, Has.Count.EqualTo(7));
+        Assert.That(result, Has.Count.EqualTo(8));
         Assert.Multiple(() =>
         {
             Assert.That(result[0].Key, Is.EqualTo("MI6:name"));
@@ -77,6 +80,9 @@ public class JsonElementTokenizerShould
             
             Assert.That(result[6].Key, Is.EqualTo("MI6:married"));
             Assert.That(result[6].Value, Is.Null);
+
+            Assert.That(result[7].Key, Is.EqualTo("MI6:permissions:kill"));
+            Assert.That(result[7].Value, Is.EqualTo("True"));
         });
     }
 }
