@@ -13,6 +13,7 @@ public interface IConfigurationRefresher
     /// <summary>
     /// Gets whether configuration source is optional.
     /// </summary>
+    [Obsolete("Use Options.IsOptional instead.")]
     bool IsOptional { get; }
 
     /// <summary>

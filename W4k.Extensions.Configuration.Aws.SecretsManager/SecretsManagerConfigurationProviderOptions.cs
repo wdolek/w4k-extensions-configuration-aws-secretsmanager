@@ -30,6 +30,11 @@ public sealed class SecretsManagerConfigurationProviderOptions
     public string SecretName { get; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether secret is mandatory (throws when failed to load) or optional (silently ignores).
+    /// </summary>
+    public bool IsOptional { get; set; }
+
+    /// <summary>
     /// Gets or sets secret version to fetch, if not provided, latest version of secret is fetched.
     /// </summary>
     public SecretVersion? Version { get; set; }

@@ -28,7 +28,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse);
         
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub, isOptional: false);
+        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
         var provider = new SecretsManagerConfigurationProvider(source);
         
         // act
@@ -47,14 +47,12 @@ public class SecretsManagerConfigurationProviderShould
     public void ThrowWhenLoadingFails()
     {
         // arrange
-        var isOptional = false;
-
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
-        
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub, isOptional);
+
+        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
         var provider = new SecretsManagerConfigurationProvider(source);
         
         // act
@@ -65,14 +63,15 @@ public class SecretsManagerConfigurationProviderShould
     public void NotThrowWhenLoadingFailsButSourceIsOptional()
     {
         // arrange
-        var isOptional = true;
-
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
-        
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub, isOptional);
+
+        var source = new SecretsManagerConfigurationSource(
+            new SecretsManagerConfigurationProviderOptions("le-secret") { IsOptional = true },
+            secretsManagerStub);
+
         var provider = new SecretsManagerConfigurationProvider(source);
         
         // act
@@ -99,7 +98,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse, refreshedResponse);
         
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub, isOptional: false);
+        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
         var provider = new SecretsManagerConfigurationProvider(source);
         
         // act
@@ -130,7 +129,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse, InitialSecretValueResponse);
         
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub, isOptional: false);
+        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
         var provider = new SecretsManagerConfigurationProvider(source);
         
         // act
