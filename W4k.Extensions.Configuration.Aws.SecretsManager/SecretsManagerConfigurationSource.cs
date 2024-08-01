@@ -35,7 +35,7 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="secretName">Secret name or ID.</param>
     /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
     /// <param name="isOptional">Defines the configuration provider's response when a server loading error occurs. If set to false, the error is propagated. If set to true, the error is ignored and no settings are loaded from the AWS Secrets Manager Configuration.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
     [SuppressMessage("ReSharper", "MethodOverloadWithOptionalParameter", Justification = "Binary compatibility.")]
     [Obsolete("Use override without `isOptional` parameter, AddSecretsManager(IConfigurationBuilder, string, Action<SecretsManagerConfigurationProviderOptions>).")]
     public static IConfigurationBuilder AddSecretsManager(
@@ -56,7 +56,9 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="client">AWS Secrets Manager client.</param>
     /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
     /// <param name="isOptional">Defines the configuration provider's response when a server loading error occurs. If set to false, the error is propagated. If set to true, the error is ignored and no settings are loaded from the AWS Secrets Manager Configuration.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="client"/> is <see langword="null"/>.</exception>
     [SuppressMessage("ReSharper", "MethodOverloadWithOptionalParameter", Justification = "Binary compatibility.")]
     [Obsolete("Use override without `isOptional` parameter, AddSecretsManager(IConfigurationBuilder, string, IAmazonSecretsManager, Action<SecretsManagerConfigurationProviderOptions>).")]
     public static IConfigurationBuilder AddSecretsManager(
@@ -88,7 +90,7 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="builder">Configuration builder.</param>
     /// <param name="secretName">Secret name or ID.</param>
     /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         string secretName,
@@ -105,7 +107,9 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="secretName">Secret name or ID.</param>
     /// <param name="client">AWS Secrets Manager client.</param>
     /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="client"/> is <see langword="null"/>.</exception>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         string secretName,
@@ -130,7 +134,7 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="builder">Configuration builder.</param>
     /// <param name="secretNames">Collection of secret names to fetch from AWS Secrets Manager.</param>
     /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         IReadOnlyList<string> secretNames,
@@ -147,7 +151,9 @@ public static class SecretsManagerConfigurationExtensions
     /// <param name="secretNames">Collection of secret names to fetch from AWS Secrets Manager.</param>
     /// <param name="client">AWS Secrets Manager client.</param>
     /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretNames"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="secretNames"/> is empty.</exception>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         IReadOnlyList<string> secretNames,
