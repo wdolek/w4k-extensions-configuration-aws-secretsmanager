@@ -45,15 +45,23 @@ builder.Configuration.AddSecretsManager(
     c => c.ConfigurationKeyPrefix = "AppSecrets");
 ```
 
+In order to add multiple secrets while sharing same configuration,
+it's possible to use another overload of `AddSecretsManager` method:
+
+```csharp
+// add AWS Secrets Manager Configuration Provider for multiple secrets
+builder.Configuration.AddSecretsManager(["my-first-secret", "my-second-secret"]);
+```
+
 ## Configuration
 
 ### Optional secret
 
-When adding a configuration source, it is mandatory by default - meaning if the secret is not found or it's not possible 
-to load it, an exception is thrown. To make it optional, set `isOptional` to `true`:
+When adding a configuration source, given secret is mandatory by default - meaning if the secret is not found, or it's not possible 
+to fetch it, an exception is thrown. To make it optional, set `IsOptional` property to `true`:
 
 ```csharp
-builder.Configuration.AddSecretsManager("my-secret-secrets", isOptional: true);
+builder.Configuration.AddSecretsManager("my-secret-secrets", c => c.IsOptional = true);
 ```
 
 ### Secret Version
@@ -88,7 +96,7 @@ When binding your option type, make sure path is considered or that you bind to 
 
 ### Secret processing (parsing and tokenizing)
 
-By default AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
+By default, AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
 In some cases, a user may want to specify a custom format, either a complex JSON object or even an XML document.
 
 In order to support such scenarios, it is possible to specify custom secret processor:
@@ -103,13 +111,13 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
-There's helper class [`SecretsProcessor<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/SecretsProcessor.cs) which
+There's helper class [`SecretProcessor<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/SecretProcessor.cs) which
 can be used to simplify implementation of custom processor (by providing implementation of [`ISecretStringParser<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/ISecretStringParser.cs) and [`IConfigurationTokenizer<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/IConfigurationTokenizer.cs)).
 
 ### Configuration key transformation
 
 It is possible to hook into the configuration key transformation, which is used to transform the tokenized configuration key.
-By default only [`KeyDelimiterTransformer`](W4k.Extensions.Configuration.Aws.SecretsManager/ConfigurationKeyTransformer.cs) is used.
+By default, only [`KeyDelimiterTransformer`](W4k.Extensions.Configuration.Aws.SecretsManager/ConfigurationKeyTransformer.cs) is used.
 
 `KeyDelimiterTransformer` transforms "`__`" to configuration key delimiter, "`:`".
 
