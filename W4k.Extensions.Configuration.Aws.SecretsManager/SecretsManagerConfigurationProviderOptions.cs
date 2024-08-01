@@ -24,12 +24,6 @@ public sealed class SecretsManagerConfigurationProviderOptions
         SecretName = secretName;
     }
 
-    internal SecretsManagerConfigurationProviderOptions(string secretName, bool isOptional)
-        : this(secretName)
-    {
-        IsOptional = isOptional;
-    }
-
     /// <summary>
     /// Gets secret name (or its complete ARN) to fetch.
     /// </summary>

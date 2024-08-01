@@ -69,7 +69,7 @@ public class SecretsManagerConfigurationProviderShould
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
         var source = new SecretsManagerConfigurationSource(
-            new SecretsManagerConfigurationProviderOptions("le-secret", isOptional: true),
+            new SecretsManagerConfigurationProviderOptions("le-secret") { IsOptional = true },
             secretsManagerStub);
 
         var provider = new SecretsManagerConfigurationProvider(source);
