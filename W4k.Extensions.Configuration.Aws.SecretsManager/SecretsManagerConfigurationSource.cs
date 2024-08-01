@@ -76,7 +76,7 @@ public static class SecretsManagerConfigurationExtensions
 
         configureOptions?.Invoke(providerOptions);
 
-        return builder.Add(new SecretsManagerConfigurationSource(providerOptions, client));
+        return builder.AddSecretsManager(providerOptions, client);
     }
 
     /// <summary>
@@ -115,10 +115,10 @@ public static class SecretsManagerConfigurationExtensions
         ArgumentNullException.ThrowIfNull(secretName);
         ArgumentNullException.ThrowIfNull(client);
 
-        var providerOptions = new SecretsManagerConfigurationProviderOptions(secretName);
-        configureOptions?.Invoke(providerOptions);
+        var options = new SecretsManagerConfigurationProviderOptions(secretName);
+        configureOptions?.Invoke(options);
 
-        return builder.Add(new SecretsManagerConfigurationSource(providerOptions, client));
+        return builder.AddSecretsManager(options, client);
     }
 
     /// <summary>
@@ -133,7 +133,7 @@ public static class SecretsManagerConfigurationExtensions
     /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
-        IReadOnlyCollection<string> secretNames,
+        IReadOnlyList<string> secretNames,
         Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
     {
         var client = new AmazonSecretsManagerClient();
@@ -150,27 +150,71 @@ public static class SecretsManagerConfigurationExtensions
     /// <returns>Instance of <see cref="IConfigurationBuilder"/></returns>
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
-        IReadOnlyCollection<string> secretNames,
+        IReadOnlyList<string> secretNames,
         IAmazonSecretsManager client,
         Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(secretNames);
-        ArgumentNullException.ThrowIfNull(client);
 
         if (secretNames.Count == 0)
         {
             ThrowOnEmptySecretNames(secretNames);
         }
-
-        foreach (var secretName in secretNames)
+        else if (secretNames.Count == 1)
         {
-            var providerOptions = new SecretsManagerConfigurationProviderOptions(secretName);
-            configureOptions?.Invoke(providerOptions);
-
-            builder.Add(new SecretsManagerConfigurationSource(providerOptions, client));
+            CreateAndConfigureOptions(builder, secretNames[0]);
+        }
+        else
+        {
+            foreach (var secretName in secretNames)
+            {
+                CreateAndConfigureOptions(builder, secretName);
+            }
         }
 
         return builder;
+
+        void CreateAndConfigureOptions(IConfigurationBuilder cb, string secretName)
+        {
+            var options = new SecretsManagerConfigurationProviderOptions(secretName);
+            configureOptions?.Invoke(options);
+
+            cb.AddSecretsManager(options, client);
+        }
+    }
+
+    /// <summary>
+    /// Adds secrets manager as configuration source.
+    /// </summary>
+    /// <param name="builder">Configuration builder.</param>
+    /// <param name="options">Secrets Manager configuration provider options.</param>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
+    public static IConfigurationBuilder AddSecretsManager(
+        this IConfigurationBuilder builder,
+        SecretsManagerConfigurationProviderOptions options)
+    {
+        var client = new AmazonSecretsManagerClient();
+        return builder.AddSecretsManager(options, client);
+    }
+
+    /// <summary>
+    /// Adds secrets manager as configuration source.
+    /// </summary>
+    /// <param name="builder">Configuration builder.</param>
+    /// <param name="options">Secrets Manager configuration provider options.</param>
+    /// <param name="client">AWS Secrets Manager client.</param>
+    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="client"/> is <see langword="null"/>.</exception>
+    public static IConfigurationBuilder AddSecretsManager(
+        this IConfigurationBuilder builder,
+        SecretsManagerConfigurationProviderOptions options,
+        IAmazonSecretsManager client)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(client);
+
+        return builder.Add(new SecretsManagerConfigurationSource(options, client));
     }
 
     [DoesNotReturn]
