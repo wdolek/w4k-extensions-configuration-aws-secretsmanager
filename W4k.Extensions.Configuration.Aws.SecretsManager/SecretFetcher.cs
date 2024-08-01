@@ -18,7 +18,6 @@ internal sealed class SecretFetcher
         try
         {
             var response = await _secretsManager.GetSecretValueAsync(request, cancellationToken).ConfigureAwait(false);
-
             if (response.SecretString is not null)
             {
                 return new(response.VersionId, response.SecretString);
