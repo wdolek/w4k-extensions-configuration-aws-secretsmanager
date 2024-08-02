@@ -111,13 +111,13 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
-There's helper class [`SecretProcessor<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/SecretProcessor.cs) which
-can be used to simplify implementation of custom processor (by providing implementation of [`ISecretStringParser<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/ISecretStringParser.cs) and [`IConfigurationTokenizer<T>`](W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/IConfigurationTokenizer.cs)).
+There's helper class [`SecretProcessor<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/SecretProcessor.cs) which
+can be used to simplify implementation of custom processor (by providing implementation of [`ISecretStringParser<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/ISecretStringParser.cs) and [`IConfigurationTokenizer<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/IConfigurationTokenizer.cs)).
 
 ### Configuration key transformation
 
 It is possible to hook into the configuration key transformation, which is used to transform the tokenized configuration key.
-By default, only [`KeyDelimiterTransformer`](W4k.Extensions.Configuration.Aws.SecretsManager/ConfigurationKeyTransformer.cs) is used.
+By default, only [`KeyDelimiterTransformer`](src/W4k.Extensions.Configuration.Aws.SecretsManager/ConfigurationKeyTransformer.cs) is used.
 
 `KeyDelimiterTransformer` transforms "`__`" to configuration key delimiter, "`:`".
 
