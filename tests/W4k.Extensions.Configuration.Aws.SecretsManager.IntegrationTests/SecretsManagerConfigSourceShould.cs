@@ -35,7 +35,7 @@ public class SecretsManagerConfigSourceShould
             });
 
         Assert.That(config, Is.Not.Null);
-        CollectionAssert.IsEmpty(config.GetChildren());
+        CollectionAssert.IsEmpty(config.AsEnumerable());
     }
 
     [Test]
