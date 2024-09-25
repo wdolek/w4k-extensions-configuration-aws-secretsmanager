@@ -1,7 +1,8 @@
 # W4k.Extensions.Configuration.Aws.SecretsManager
 
 ![W4k.Either Build](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/workflows/Build%20and%20test/badge.svg)
-[![NuGet Badge](https://buildstats.info/nuget/W4k.Extensions.Configuration.Aws.SecretsManager?includePreReleases=true)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
+[![GitHub Release](https://img.shields.io/github/release/wdolek/w4k-extensions-configuration-aws-secretsmanager.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/releases)
+[![NuGet Version](https://img.shields.io/nuget/v/W4k.Extensions.Configuration.Aws.SecretsManager.svg)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
 [![CodeQL](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/security/code-scanning)
 
 Configuration provider using AWS Secrets Manager as source of data.
@@ -208,6 +209,7 @@ This approach is described in [Passing sensitive data to a container / Using Sec
 
 - [`Kralizek.Extensions.Configuration.AWSSecretsManager`](https://www.nuget.org/packages/Kralizek.Extensions.Configuration.AWSSecretsManager)
 - [`PrincipleStudios.Extensions.Configuration.SecretsManager`](https://www.nuget.org/packages/PrincipleStudios.Extensions.Configuration.SecretsManager)
+- [`Tiger.Secrets`](https://www.nuget.org/packages/Tiger.Secrets)
 
 ---
 
