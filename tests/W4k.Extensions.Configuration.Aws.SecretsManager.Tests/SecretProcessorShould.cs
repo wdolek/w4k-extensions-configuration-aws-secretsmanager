@@ -24,9 +24,9 @@ public class SecretProcessorShould
                 "App__Misc_Settings__Key": "Value1"
             }
             """;
-        
+
         var processor = SecretsProcessor.Json;
-        
+
         // act
         var data = processor.GetConfigurationData(TestOptions, secretString);
 

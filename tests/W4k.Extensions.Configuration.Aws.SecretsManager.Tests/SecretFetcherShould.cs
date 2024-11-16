@@ -1,8 +1,6 @@
 ﻿using System.Text;
 using Amazon.SecretsManager;
 using Amazon.SecretsManager.Model;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -72,7 +70,7 @@ public class SecretFetcherShould
             Assert.That(result.Value, Is.EqualTo(secretContent));
         });
     }
-    
+
     [Test]
     public void ThrowIfSecretIsNeitherStringOrBinary()
     {
@@ -86,8 +84,8 @@ public class SecretFetcherShould
 
         // act & assert
         Assert.ThrowsAsync<SecretRetrievalException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
-    }    
-    
+    }
+
     [Test]
     public void ThrowIfSecretNotFound()
     {

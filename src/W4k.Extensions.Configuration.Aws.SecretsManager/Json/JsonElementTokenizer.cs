@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
-
 using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Json;
@@ -25,7 +24,7 @@ internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement
             case JsonValueKind.String:
                 yield return KeyValuePair.Create(prefix, input.GetString());
                 break;
-                
+
             case JsonValueKind.True:
             case JsonValueKind.False:
                 yield return KeyValuePair.Create(prefix, input.GetBoolean().ToString())!;
@@ -77,7 +76,7 @@ internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement
             ++idx;
         }
     }
-    
+
     private static string ComposeKey(string prefix, string key) =>
         string.IsNullOrEmpty(prefix)
             ? key

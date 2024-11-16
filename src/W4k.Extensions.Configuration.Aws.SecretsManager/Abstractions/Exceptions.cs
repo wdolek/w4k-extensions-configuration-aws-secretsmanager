@@ -32,13 +32,13 @@ public class SecretNotFoundException : Exception
     public SecretNotFoundException()
     {
     }
-    
+
     /// <inheritdoc/>
     public SecretNotFoundException(string message)
         : base(message)
     {
     }
-    
+
     /// <inheritdoc/>
     public SecretNotFoundException(string message, Exception inner)
         : base(message, inner)

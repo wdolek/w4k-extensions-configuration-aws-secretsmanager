@@ -19,7 +19,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
     {
         _source = source;
         _secretFetcher = new SecretFetcher(source.SecretsManager);
-        _logger = source.Options.LoggerFactory.CreateLogger(typeof(SecretsManagerConfigurationProvider));
+        _logger = source.Options.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
     }
 
     public SecretsManagerConfigurationProviderOptions Options => _source.Options;
@@ -46,7 +46,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
             {
                 return;
             }
-            
+
             // delay re-throwing of exception to not overwhelm the system on startup code path
             // (this is to mitigate crash loop on startup)
             var waitBeforeRethrow = UnhandledExceptionDelay - watch.Elapsed;
@@ -78,15 +78,15 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
                 _logger.SecretAlreadyLoaded(options.SecretName, secret.VersionId);
                 return;
             }
-            
+
             var previousVersionId = _currentSecretVersionId;
             SetData(
-                versionId: secret.VersionId, 
+                versionId: secret.VersionId,
                 data: processor.GetConfigurationData(Options, secret.Value));
-            
+
             _logger.SecretRefreshed(options.SecretName, previousVersionId!, secret.VersionId);
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             _logger.FailedToRefreshSecret(e, options.SecretName);
             throw;
@@ -105,7 +105,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
         {
             var secret = await _secretFetcher.GetSecret(options.SecretName, options.Version, cancellationToken).ConfigureAwait(false);
             SetData(
-                versionId: secret.VersionId, 
+                versionId: secret.VersionId,
                 data: processor.GetConfigurationData(options, secret.Value));
 
             _logger.SecretLoaded(options.SecretName, secret.VersionId);

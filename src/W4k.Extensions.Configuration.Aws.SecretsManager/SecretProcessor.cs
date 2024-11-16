@@ -14,7 +14,7 @@ public static class SecretsProcessor
     /// </summary>
     public static readonly ISecretProcessor Json =
         new SecretProcessor<JsonElement>(
-            new JsonElementParser(), 
+            new JsonElementParser(),
             new JsonElementTokenizer());
 }
 

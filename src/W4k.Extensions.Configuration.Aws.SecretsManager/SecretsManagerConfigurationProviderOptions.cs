@@ -45,7 +45,7 @@ public sealed class SecretsManagerConfigurationProviderOptions
     /// <exception cref="ArgumentNullException">Thrown when value is <see langword="null"/>.</exception>
     public string ConfigurationKeyPrefix
     {
-        get { return _configKeyPrefix; }
+        get => _configKeyPrefix;
         set
         {
             ArgumentNullException.ThrowIfNull(value);
@@ -59,7 +59,7 @@ public sealed class SecretsManagerConfigurationProviderOptions
     /// <exception cref="ArgumentNullException">Thrown when value is <see langword="null"/>.</exception>
     public ISecretProcessor Processor
     {
-        get { return _secretProcessor; }
+        get => _secretProcessor;
         set
         {
             ArgumentNullException.ThrowIfNull(_secretProcessor);
@@ -75,8 +75,8 @@ public sealed class SecretsManagerConfigurationProviderOptions
     /// Result of previous transformer is input for the next one.
     /// By default, only <see cref="KeyDelimiterTransformer"/> is present.
     /// </remarks>
-    public List<IConfigurationKeyTransformer> KeyTransformers { get; } = new() { new KeyDelimiterTransformer() };
-    
+    public List<IConfigurationKeyTransformer> KeyTransformers { get; } = [new KeyDelimiterTransformer()];
+
     /// <summary>
     /// Gets or sets configuration change watcher.
     /// </summary>
@@ -88,7 +88,7 @@ public sealed class SecretsManagerConfigurationProviderOptions
     /// <exception cref="ArgumentNullException">Thrown when value is <see langword="null"/>.</exception>
     public StartupOptions Startup
     {
-        get { return _startupOptions; }
+        get => _startupOptions;
         set
         {
             ArgumentNullException.ThrowIfNull(value);
@@ -104,7 +104,7 @@ public sealed class SecretsManagerConfigurationProviderOptions
     /// </remarks>
     public ILoggerFactory LoggerFactory
     {
-        get { return _loggerFactory; }
+        get => _loggerFactory;
         set
         {
             ArgumentNullException.ThrowIfNull(value);
@@ -145,7 +145,7 @@ public sealed class StartupOptions
     /// <exception cref="ArgumentOutOfRangeException">Thrown when value is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public TimeSpan Timeout
     {
-        get { return _timeout; }
+        get => _timeout;
         set
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);

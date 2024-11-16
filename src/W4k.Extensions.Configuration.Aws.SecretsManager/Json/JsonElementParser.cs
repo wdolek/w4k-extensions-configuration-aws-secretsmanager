@@ -10,7 +10,7 @@ internal sealed class JsonElementParser : ISecretStringParser<JsonElement>
         CommentHandling = JsonCommentHandling.Skip,
         MaxDepth = 16,
     };
-    
+
     public bool TryParse(string secretString, out JsonElement secretValue)
     {
         if (!IsPossiblyJsonValue(secretString))

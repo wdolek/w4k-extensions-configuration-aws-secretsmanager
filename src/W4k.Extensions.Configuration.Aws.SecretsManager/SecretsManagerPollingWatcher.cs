@@ -54,7 +54,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
             // no-op
         }
     }
-    
+
     private static void ThrowIfStarted(Timer? timer)
     {
         if (timer is not null)

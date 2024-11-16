@@ -161,7 +161,7 @@ public class SecretsManagerConfigSourceShould
 
     private class TestKeyTransformer : IConfigurationKeyTransformer
     {
-        private readonly Func<string,string> _transform;
+        private readonly Func<string, string> _transform;
 
         public TestKeyTransformer(Func<string, string> transform)
         {

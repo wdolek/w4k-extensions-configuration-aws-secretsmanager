@@ -14,15 +14,15 @@ public class JsonElementTokenizerShould
                 "key": "value"
             }
             """;
-        
+
         var jsonElement = JsonDocument.Parse(json).RootElement;
         var tokenizer = new JsonElementTokenizer();
-        
+
         // act
         var result = tokenizer
             .Tokenize(jsonElement, "")
             .ToList();
-        
+
         // assert
         Assert.That(result[0].Key, Is.EqualTo("key"));
     }
@@ -50,7 +50,7 @@ public class JsonElementTokenizerShould
 
         var jsonElement = JsonDocument.Parse(json).RootElement;
         var tokenizer = new JsonElementTokenizer();
-        
+
         // act
         var result = tokenizer
             .Tokenize(jsonElement, "MI6")
@@ -62,7 +62,7 @@ public class JsonElementTokenizerShould
         {
             Assert.That(result[0].Key, Is.EqualTo("MI6:name"));
             Assert.That(result[0].Value, Is.EqualTo("James Bond"));
-            
+
             Assert.That(result[1].Key, Is.EqualTo("MI6:age"));
             Assert.That(result[1].Value, Is.EqualTo("45"));
 
@@ -77,7 +77,7 @@ public class JsonElementTokenizerShould
 
             Assert.That(result[5].Key, Is.EqualTo("MI6:hasLicenseToKill"));
             Assert.That(result[5].Value, Is.EqualTo("True"));
-            
+
             Assert.That(result[6].Key, Is.EqualTo("MI6:married"));
             Assert.That(result[6].Value, Is.Null);
 
