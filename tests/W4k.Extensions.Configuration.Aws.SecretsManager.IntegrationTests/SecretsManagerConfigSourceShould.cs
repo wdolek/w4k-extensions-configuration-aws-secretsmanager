@@ -35,7 +35,7 @@ public class SecretsManagerConfigSourceShould
             });
 
         Assert.That(config, Is.Not.Null);
-        CollectionAssert.IsEmpty(config.AsEnumerable());
+        Assert.That(config.AsEnumerable(), Is.Empty);
     }
 
     [Test]
@@ -58,7 +58,7 @@ public class SecretsManagerConfigSourceShould
 
         // act
         Assert.That(secrets, Has.Count.EqualTo(2));
-        CollectionAssert.AreEquivalent(expected, secrets);
+        Assert.That(secrets, Is.EquivalentTo(expected));
     }
 
     [Test]
@@ -83,7 +83,7 @@ public class SecretsManagerConfigSourceShould
         var secrets = config.AsEnumerable().ToList();
 
         // assert
-        CollectionAssert.AreEquivalent(expected, secrets);
+        Assert.That(secrets, Is.EquivalentTo(expected));
     }
 
     [Test]
@@ -108,7 +108,7 @@ public class SecretsManagerConfigSourceShould
         var secrets = config.AsEnumerable().ToList();
 
         // act
-        CollectionAssert.AreEquivalent(expected, secrets);
+        Assert.That(secrets, Is.EquivalentTo(expected));
     }
 
     [Test]
@@ -141,7 +141,7 @@ public class SecretsManagerConfigSourceShould
         var secrets = config.AsEnumerable().ToList();
 
         // assert
-        CollectionAssert.AreEquivalent(expected, secrets);
+        Assert.That(secrets, Is.EquivalentTo(expected));
     }
 
     [Test]
