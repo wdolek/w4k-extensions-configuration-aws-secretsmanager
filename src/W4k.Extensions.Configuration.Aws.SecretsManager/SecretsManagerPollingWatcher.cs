@@ -17,14 +17,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerPollingWatcher(TimeSpan interval)
     {
-#if NET8_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(interval, TimeSpan.Zero);
-#else
-        if (interval <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(interval));
-        }
-#endif
         _interval = interval;
     }
 

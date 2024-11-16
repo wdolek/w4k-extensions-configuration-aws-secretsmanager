@@ -148,14 +148,7 @@ public sealed class StartupOptions
         get { return _timeout; }
         set
         {
-#if NET8_0_OR_GREATER
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
-#else
-            if (value <= TimeSpan.Zero)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
-#endif
             _timeout = value;
         }
     }

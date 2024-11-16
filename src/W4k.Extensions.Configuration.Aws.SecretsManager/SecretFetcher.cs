@@ -26,11 +26,7 @@ internal sealed class SecretFetcher
             if (response.SecretBinary is not null)
             {
                 using var reader = new StreamReader(response.SecretBinary, leaveOpen: false);
-#if NET8_0_OR_GREATER
                 var encodedString = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-#else
-                var encodedString = await reader.ReadToEndAsync().ConfigureAwait(false);
-#endif
                 var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
 
                 return new(response.VersionId, secretString);
