@@ -5,7 +5,7 @@ root = true
 indent_style = space
 
 # Xml files
-[*.xml]
+[*.{xml,csproj}]
 indent_size = 2
 
 # C# files
@@ -24,7 +24,7 @@ insert_final_newline = false
 [*.{cs,vb}]
 
 # Organize usings
-dotnet_separate_import_directive_groups = true
+dotnet_separate_import_directive_groups = false
 dotnet_sort_system_directives_first = true
 file_header_template = unset
 
