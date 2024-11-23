@@ -3,7 +3,6 @@
 ![W4k.Either Build](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/workflows/Build%20and%20test/badge.svg)
 [![GitHub Release](https://img.shields.io/github/release/wdolek/w4k-extensions-configuration-aws-secretsmanager.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/releases)
 [![NuGet Version](https://img.shields.io/nuget/v/W4k.Extensions.Configuration.Aws.SecretsManager.svg)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
-[![CodeQL](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/security/code-scanning)
 
 Configuration provider using AWS Secrets Manager as source of data.
 
