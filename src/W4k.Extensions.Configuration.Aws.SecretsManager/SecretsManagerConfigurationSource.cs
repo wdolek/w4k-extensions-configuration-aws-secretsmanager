@@ -168,7 +168,10 @@ public static class SecretsManagerConfigurationExtensions
     }
 
     [DoesNotReturn]
-    private static void ThrowOnEmptySecretNames(IReadOnlyCollection<string> secretNames,
-        [CallerArgumentExpression(nameof(secretNames))] string? paramName = null) =>
+    private static void ThrowOnEmptySecretNames(
+        IReadOnlyCollection<string> secretNames,
+        [CallerArgumentExpression(nameof(secretNames))] string? paramName = null)
+    {
         throw new ArgumentException("At least one secret name must be provided.", paramName);
+    }
 }
