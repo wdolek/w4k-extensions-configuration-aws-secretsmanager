@@ -26,11 +26,7 @@ internal sealed class SecretFetcher
             if (response.SecretBinary is not null)
             {
                 using var reader = new StreamReader(response.SecretBinary, leaveOpen: false);
-#if NET8_0_OR_GREATER
                 var encodedString = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-#else
-                var encodedString = await reader.ReadToEndAsync().ConfigureAwait(false);
-#endif
                 var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
 
                 return new(response.VersionId, secretString);
@@ -42,7 +38,7 @@ internal sealed class SecretFetcher
         {
             throw new SecretNotFoundException($"Secret {request.SecretId} not found", e);
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not SecretRetrievalException)
         {
             throw new SecretRetrievalException($"Failed to retrieve secret {request.SecretId} from AWS Secrets Manager", e);
         }
@@ -61,7 +57,7 @@ internal sealed class SecretFetcher
             {
                 request.VersionId = version.VersionId;
             }
-            
+
             if (!string.IsNullOrEmpty(version.VersionStage))
             {
                 request.VersionStage = version.VersionStage;
