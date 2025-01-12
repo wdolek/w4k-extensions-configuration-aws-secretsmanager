@@ -27,7 +27,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        if (_timer != null)
+        if (_timer is not null)
         {
             await _timer.DisposeAsync();
         }
@@ -41,7 +41,6 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         _timer = new Timer(ExecuteRefresh, refresher, _interval, _interval);
     }
 
-    [SuppressMessage("ReSharper", "ExplicitCallerInfoArgument", Justification = "Explicitly passing activity name")]
     private static void ExecuteRefresh(object? state)
     {
         var refresher = (IConfigurationRefresher)state!;
