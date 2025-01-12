@@ -27,7 +27,7 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     public override void Load()
     {
-        var watch = Stopwatch.StartNew();
+        var startingTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var cts = new CancellationTokenSource(Options.Startup.Timeout);
@@ -49,7 +49,8 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
             // delay re-throwing of exception to not overwhelm the system on startup code path
             // (this is to mitigate crash loop on startup)
-            var waitBeforeRethrow = UnhandledExceptionDelay - watch.Elapsed;
+            var elapsedTime = Stopwatch.GetElapsedTime(startingTimestamp);
+            var waitBeforeRethrow = UnhandledExceptionDelay - elapsedTime;
             if (waitBeforeRethrow > TimeSpan.Zero)
             {
                 Task.Delay(waitBeforeRethrow).ConfigureAwait(false).GetAwaiter().GetResult();
