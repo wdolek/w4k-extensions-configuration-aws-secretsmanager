@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -62,6 +63,8 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {
+        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.RefreshActivityName);
+
         // return early if refresh is already in progress
         if (Interlocked.Exchange(ref _refreshInProgress, 1) == 1)
         {
@@ -76,6 +79,10 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
             if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
             {
+                activity?
+                    .AddEvent(new ActivityEvent("Skip, no change"))
+                    .SetStatus(ActivityStatusCode.Ok);
+
                 _logger.SecretAlreadyLoaded(options.SecretName, secret.VersionId);
                 return;
             }
@@ -85,10 +92,19 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
                 versionId: secret.VersionId,
                 data: processor.GetConfigurationData(Options, secret.Value));
 
+            activity?
+                .AddEvent(new ActivityEvent("Refresh completed"))
+                .SetStatus(ActivityStatusCode.Ok);
+
             _logger.SecretRefreshed(options.SecretName, previousVersionId!, secret.VersionId);
         }
         catch (Exception e)
         {
+            activity?
+                .AddEvent(new ActivityEvent("Refresh failed"))
+                .SetTag("Error", e.Message)
+                .SetStatus(ActivityStatusCode.Error);
+
             _logger.FailedToRefreshSecret(e, options.SecretName);
             throw;
         }
@@ -100,6 +116,8 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
 
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
+        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
+
         var options = Options;
         var processor = options.Processor;
         try
@@ -109,11 +127,22 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
                 versionId: secret.VersionId,
                 data: processor.GetConfigurationData(options, secret.Value));
 
+            activity?
+                .AddEvent(new ActivityEvent("Load completed"))
+                .SetStatus(ActivityStatusCode.Ok);
+
             _logger.SecretLoaded(options.SecretName, secret.VersionId);
         }
         catch (Exception e)
         {
+            activity?
+                .AddEvent(new ActivityEvent("Load failed"))
+                .SetTag("Error", e.Message)
+                .SetStatus(ActivityStatusCode.Error);
+
             _logger.FailedToLoadSecret(e, options.SecretName);
+
+            // exception is handled by caller
             throw;
         }
     }
