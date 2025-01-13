@@ -201,15 +201,13 @@ There's helper extension method to configure activity listener:
 
 ```csharp
 var listener = new ActivityListener().ListenToSecretsManagerActivitySource(
-    startActivity => Console.WriteLine(startActivity.FormatStartActivity()),
-    stopActivity => Console.WriteLine(stopActivity.FormatStopActivity()));
+    startActivity => $"[{startActivity.StartTimeUtc:O}] {startActivity.Source.Name}:{startActivity.OperationName} Started"),
+    stopActivity => $"[{stopActivity.StartTimeUtc:O}] {stopActivity.Source.Name}:{stopActivity.OperationName} Stopped"));
 
 ActivitySource.AddActivityListener(listener);
 ```
 
-Note that `FormatStartActivity()` and `FormatStopActivity()` are additional extensions for formatting `Activity` to string.
-It is not required to use those methods, it's up to caller how start/stop activities are processed.
-When listener is registered this way in very early stage of application, it is possible to see _Load_ activity as well.
+When listener is registered this way in very early stage of the application, it is possible to see _Load_ activity as well.
 
 ### Logging
 
