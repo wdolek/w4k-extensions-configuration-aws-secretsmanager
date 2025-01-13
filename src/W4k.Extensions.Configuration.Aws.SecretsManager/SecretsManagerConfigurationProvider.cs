@@ -80,8 +80,8 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
             if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
             {
                 activity?
-                    .AddEvent(new ActivityEvent("Secret up-to-date"))
-                    .SetStatus(ActivityStatusCode.Ok);
+                    .AddEvent(new ActivityEvent("skipped"))
+                    .SetStatus(ActivityStatusCode.Ok, "Secret up-to-date");
 
                 _logger.SecretAlreadyLoaded(options.SecretName, secret.VersionId);
                 return;
@@ -93,16 +93,16 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
                 data: processor.GetConfigurationData(Options, secret.Value));
 
             activity?
-                .AddEvent(new ActivityEvent("Secret refreshed"))
-                .SetStatus(ActivityStatusCode.Ok);
+                .AddEvent(new ActivityEvent("refreshed"))
+                .SetStatus(ActivityStatusCode.Ok, "Secret refreshed");
 
             _logger.SecretRefreshed(options.SecretName, previousVersionId!, secret.VersionId);
         }
         catch (Exception e)
         {
             activity?
-                .AddEvent(e.ToActivityEvent("Error refreshing secret"))
-                .SetStatus(ActivityStatusCode.Error);
+                .AddEvent(e.ToActivityEvent())
+                .SetStatus(ActivityStatusCode.Error, "Error refreshing secret");
 
             _logger.FailedToRefreshSecret(e, options.SecretName);
             throw;
@@ -127,16 +127,16 @@ internal sealed class SecretsManagerConfigurationProvider : ConfigurationProvide
                 data: processor.GetConfigurationData(options, secret.Value));
 
             activity?
-                .AddEvent(new ActivityEvent("Secret loaded"))
-                .SetStatus(ActivityStatusCode.Ok);
+                .AddEvent(new ActivityEvent("loaded"))
+                .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
 
             _logger.SecretLoaded(options.SecretName, secret.VersionId);
         }
         catch (Exception e)
         {
             activity?
-                .AddEvent(e.ToActivityEvent("Error loading secret"))
-                .SetStatus(ActivityStatusCode.Error);
+                .AddEvent(e.ToActivityEvent())
+                .SetStatus(ActivityStatusCode.Error, "Error loading secret");
 
             _logger.FailedToLoadSecret(e, options.SecretName);
 
