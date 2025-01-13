@@ -8,7 +8,9 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDisposable, IAsyncDisposable
 {
     private readonly TimeSpan _interval;
-    private Timer? _timer;
+    private readonly TimeProvider _clock;
+
+    private ITimer? _timer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
@@ -16,9 +18,23 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     /// <param name="interval">Polling interval.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerPollingWatcher(TimeSpan interval)
+        : this(interval, TimeProvider.System)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
+    /// </summary>
+    /// <param name="interval">Polling interval.</param>
+    /// <param name="timeProvider">Time provider.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
+    public SecretsManagerPollingWatcher(TimeSpan interval, TimeProvider timeProvider)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(interval, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         _interval = interval;
+        _clock = timeProvider;
     }
 
     /// <inheritdoc />
@@ -38,7 +54,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     public void Start(IConfigurationRefresher refresher)
     {
         ThrowIfStarted(_timer);
-        _timer = new Timer(ExecuteRefresh, refresher, _interval, _interval);
+        _timer = _clock.CreateTimer(ExecuteRefresh, refresher, _interval, _interval);
     }
 
     private static void ExecuteRefresh(object? state)
@@ -54,7 +70,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         }
     }
 
-    private static void ThrowIfStarted(Timer? timer)
+    private static void ThrowIfStarted(ITimer? timer)
     {
         if (timer is not null)
         {
