@@ -8,8 +8,8 @@ public interface ISecretProcessor
     /// <summary>
     /// Processes secret string and returns configuration data.
     /// </summary>
-    /// <param name="options">Secrets manager provider options.</param>
+    /// <param name="source">Secrets manager provider source.</param>
     /// <param name="secretString">Content of secrets in string form.</param>
     /// <returns>Dictionary of key-value configuration read from <paramref name="secretString"/>.</returns>
-    Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationProviderOptions options, string secretString);
+    Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString);
 }

@@ -34,13 +34,13 @@ internal sealed class SecretFetcher
 
             throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary");
         }
-        catch (ResourceNotFoundException e)
+        catch (ResourceNotFoundException ex)
         {
-            throw new SecretNotFoundException($"Secret {request.SecretId} not found", e);
+            throw new SecretNotFoundException($"Secret {request.SecretId} not found", ex);
         }
-        catch (Exception e) when (e is not SecretRetrievalException)
+        catch (Exception ex) when (ex is not SecretRetrievalException)
         {
-            throw new SecretRetrievalException($"Failed to retrieve secret {request.SecretId} from AWS Secrets Manager", e);
+            throw new SecretRetrievalException($"Failed to retrieve secret {request.SecretId} from AWS Secrets Manager", ex);
         }
     }
 

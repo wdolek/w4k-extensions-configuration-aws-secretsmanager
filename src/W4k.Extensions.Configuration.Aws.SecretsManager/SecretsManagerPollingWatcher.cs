@@ -51,23 +51,16 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
 
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
-    public void Start(IConfigurationRefresher refresher)
+    public void Start(SecretsManagerConfigurationProvider provider)
     {
         ThrowIfStarted(_timer);
-        _timer = _clock.CreateTimer(ExecuteRefresh, refresher, _interval, _interval);
+        _timer = _clock.CreateTimer(ExecuteRefresh, provider, _interval, _interval);
     }
 
     private static void ExecuteRefresh(object? state)
     {
-        var refresher = (IConfigurationRefresher)state!;
-        try
-        {
-            refresher.RefreshAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-        }
-        catch
-        {
-            // no-op
-        }
+        var refresher = (SecretsManagerConfigurationProvider)state!;
+        refresher.Refresh();
     }
 
     private static void ThrowIfStarted(ITimer? timer)
