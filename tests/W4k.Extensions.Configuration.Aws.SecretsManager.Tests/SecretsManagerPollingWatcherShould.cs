@@ -18,7 +18,7 @@ public class SecretsManagerPollingWatcherShould
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<IConfigurationRefresher>();
+        var refresher = Substitute.For<ISecretsManagerConfigurationProvider>();
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act & assert
@@ -32,7 +32,7 @@ public class SecretsManagerPollingWatcherShould
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<IConfigurationRefresher>();
+        var refresher = Substitute.For<ISecretsManagerConfigurationProvider>();
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
@@ -41,15 +41,11 @@ public class SecretsManagerPollingWatcherShould
         // assert
         // 1st refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received(1)
-            .RefreshAsync(Arg.Any<CancellationToken>());
+        refresher.Received(1).Refresh();
 
         // 2nd refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received(2)
-            .RefreshAsync(Arg.Any<CancellationToken>());
+        refresher.Received(2).Refresh();
     }
 
     [Test]
@@ -58,9 +54,9 @@ public class SecretsManagerPollingWatcherShould
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<IConfigurationRefresher>();
+        var refresher = Substitute.For<ISecretsManagerConfigurationProvider>();
         refresher
-            .When(r => r.RefreshAsync(Arg.Any<CancellationToken>()))
+            .When(r => r.Refresh())
             .Throw(new InvalidOperationException("Test exception"));
 
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
@@ -73,12 +69,12 @@ public class SecretsManagerPollingWatcherShould
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
         refresher
             .Received()
-            .RefreshAsync(Arg.Any<CancellationToken>());
+            .Refresh();
 
         // 2nd refresh -> exception not thrown
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
         refresher
             .Received()
-            .RefreshAsync(Arg.Any<CancellationToken>());
+            .Refresh();
     }
 }

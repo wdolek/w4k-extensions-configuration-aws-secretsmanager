@@ -9,7 +9,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// <summary>
 /// AWS Secrets Manager configuration provider.
 /// </summary>
-public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider
+public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
     private readonly SecretFetcher _secretFetcher;
     private readonly ILogger _logger;
@@ -40,7 +40,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider
     public override string ToString() =>
         $"{GetType().Name}: {Source.SecretName} ({(Source.IsOptional ? "optional" : "required")})";
 
-    /// <inheritdoc />
+    /// <inheritdoc cref="ConfigurationProvider.Load"/>
     public override void Load()
     {
         var startingTimestamp = Stopwatch.GetTimestamp();
@@ -58,9 +58,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider
         }
     }
 
-    /// <summary>
-    /// Refreshes the configuration.
-    /// </summary>
+    /// <inheritdoc/>
     public void Refresh()
     {
         var startingTimestamp = Stopwatch.GetTimestamp();

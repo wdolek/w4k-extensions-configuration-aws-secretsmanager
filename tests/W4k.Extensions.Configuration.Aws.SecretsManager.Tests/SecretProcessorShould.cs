@@ -2,7 +2,7 @@
 
 public class SecretProcessorShould
 {
-    private static readonly SecretsManagerConfigurationProviderOptions TestOptions = new("le-secret");
+    private static readonly SecretsManagerConfigurationSource ConfigSource = new() { SecretName = "le-secret" };
 
     [Test]
     public void ThrowWhenUnableToParse()
@@ -12,7 +12,7 @@ public class SecretProcessorShould
         var processor = SecretsProcessor.Json;
 
         // act & assert
-        Assert.Throws<FormatException>(() => processor.GetConfigurationData(TestOptions, secretString));
+        Assert.Throws<FormatException>(() => processor.GetConfigurationData(ConfigSource, secretString));
     }
 
     [Test]
@@ -28,7 +28,7 @@ public class SecretProcessorShould
         var processor = SecretsProcessor.Json;
 
         // act
-        var data = processor.GetConfigurationData(TestOptions, secretString);
+        var data = processor.GetConfigurationData(ConfigSource, secretString);
 
         // assert
         Assert.That(data, Has.Count.EqualTo(1));

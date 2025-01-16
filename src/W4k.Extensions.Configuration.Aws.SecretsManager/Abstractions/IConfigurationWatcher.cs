@@ -9,5 +9,5 @@ public interface IConfigurationWatcher
     /// Start watching for configuration changes.
     /// </summary>
     /// <param name="provider">Configuration provider.</param>
-    void Start(SecretsManagerConfigurationProvider provider);
+    void Start(ISecretsManagerConfigurationProvider provider);
 }

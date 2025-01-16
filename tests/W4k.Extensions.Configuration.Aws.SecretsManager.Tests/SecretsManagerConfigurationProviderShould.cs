@@ -5,8 +5,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretsManagerConfigurationProviderShould
 {
-    private static readonly SecretsManagerConfigurationProviderOptions TestOptions = new("le-secret");
-
     private static readonly GetSecretValueResponse InitialSecretValueResponse = new()
     {
         VersionId = "d6d1b757d46d449d1835a10869dfb9d1",
@@ -26,7 +24,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse);
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -50,7 +48,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -66,9 +64,12 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
-        var source = new SecretsManagerConfigurationSource(
-            new SecretsManagerConfigurationProviderOptions("le-secret") { IsOptional = true },
-            secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub,
+            IsOptional = true
+        };
 
         var provider = new SecretsManagerConfigurationProvider(source);
 
@@ -77,7 +78,7 @@ public class SecretsManagerConfigurationProviderShould
     }
 
     [Test]
-    public async Task NotifyRefreshChangeOnNewValue()
+    public void NotifyRefreshChangeOnNewValue()
     {
         // arrange
         var refreshedResponse = new GetSecretValueResponse
@@ -96,7 +97,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse, refreshedResponse);
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -105,7 +106,7 @@ public class SecretsManagerConfigurationProviderShould
 
         // 2. execute reload
         var reloadToken = provider.GetReloadToken();
-        await provider.RefreshAsync(CancellationToken.None);
+        provider.Refresh();
 
         // assert
         Assert.That(reloadToken.HasChanged, Is.True);
@@ -119,7 +120,7 @@ public class SecretsManagerConfigurationProviderShould
     }
 
     [Test]
-    public async Task NotNotifyRefreshChangeOnSameValue()
+    public void NotNotifyRefreshChangeOnSameValue()
     {
         // arrange
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
@@ -127,7 +128,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse, InitialSecretValueResponse);
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -136,7 +137,7 @@ public class SecretsManagerConfigurationProviderShould
 
         // 2. execute reload
         var reloadToken = provider.GetReloadToken();
-        await provider.RefreshAsync(CancellationToken.None);
+        provider.Refresh();
 
         // assert
         Assert.That(reloadToken.HasChanged, Is.False);
