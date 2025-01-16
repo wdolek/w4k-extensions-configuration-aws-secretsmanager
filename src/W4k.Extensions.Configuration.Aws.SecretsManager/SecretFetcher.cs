@@ -15,33 +15,24 @@ internal sealed class SecretFetcher
     public async Task<SecretValue> GetSecret(string secretId, SecretVersion? version, CancellationToken cancellationToken)
     {
         var request = CreateRequest(secretId, version);
-        try
-        {
-            var response = await _secretsManager.GetSecretValueAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.SecretString is not null)
-            {
-                return new(response.VersionId, response.SecretString);
-            }
 
-            if (response.SecretBinary is not null)
-            {
-                using var reader = new StreamReader(response.SecretBinary, leaveOpen: false);
-                var encodedString = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-                var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
-
-                return new(response.VersionId, secretString);
-            }
-
-            throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary");
-        }
-        catch (ResourceNotFoundException ex)
+        var response = await _secretsManager.GetSecretValueAsync(request, cancellationToken).ConfigureAwait(false);
+        if (response.SecretString is not null)
         {
-            throw new SecretNotFoundException($"Secret {request.SecretId} not found", ex);
+            return new(response.VersionId, response.SecretString);
         }
-        catch (Exception ex) when (ex is not SecretRetrievalException)
+
+        if (response.SecretBinary is not null)
         {
-            throw new SecretRetrievalException($"Failed to retrieve secret {request.SecretId} from AWS Secrets Manager", ex);
+            using var reader = new StreamReader(response.SecretBinary, leaveOpen: false);
+            var encodedString = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
+
+            return new(response.VersionId, secretString);
         }
+
+        // Should Not Happen™
+        throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary");
     }
 
     private static GetSecretValueRequest CreateRequest(string secretId, SecretVersion? version)

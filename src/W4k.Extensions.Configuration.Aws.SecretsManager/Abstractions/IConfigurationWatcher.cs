@@ -10,4 +10,9 @@ public interface IConfigurationWatcher
     /// </summary>
     /// <param name="provider">Configuration provider.</param>
     void Start(ISecretsManagerConfigurationProvider provider);
+
+    /// <summary>
+    /// Stops watching for configuration changes.
+    /// </summary>
+    void Stop();
 }

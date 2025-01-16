@@ -52,7 +52,9 @@ public class SecretsManagerConfigurationProviderShould
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
-        Assert.Throws<SecretNotFoundException>(() => provider.Load());
+        var ex = Assert.Throws<SecretRetrievalException>(() => provider.Load());
+        Assert.That(ex.InnerException, Is.Not.Null);
+        Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
     }
 
     [Test]
@@ -81,7 +83,7 @@ public class SecretsManagerConfigurationProviderShould
     public void NotifyRefreshChangeOnNewValue()
     {
         // arrange
-        var refreshedResponse = new GetSecretValueResponse
+        var newSecretsResponse = new GetSecretValueResponse
         {
             VersionId = "d6d1b757d46d449d1835a10869dfb9d2",
             SecretString = """
@@ -95,7 +97,7 @@ public class SecretsManagerConfigurationProviderShould
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(InitialSecretValueResponse, refreshedResponse);
+            .Returns(InitialSecretValueResponse, newSecretsResponse);
 
         var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
@@ -106,7 +108,7 @@ public class SecretsManagerConfigurationProviderShould
 
         // 2. execute reload
         var reloadToken = provider.GetReloadToken();
-        provider.Refresh();
+        provider.Reload();
 
         // assert
         Assert.That(reloadToken.HasChanged, Is.True);
@@ -137,7 +139,7 @@ public class SecretsManagerConfigurationProviderShould
 
         // 2. execute reload
         var reloadToken = provider.GetReloadToken();
-        provider.Refresh();
+        provider.Reload();
 
         // assert
         Assert.That(reloadToken.HasChanged, Is.False);

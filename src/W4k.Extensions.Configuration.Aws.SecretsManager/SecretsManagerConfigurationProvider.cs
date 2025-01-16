@@ -14,7 +14,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     private readonly SecretFetcher _secretFetcher;
     private readonly ILogger _logger;
 
-    private int _refreshInProgress;
+    private int _reloadInProgress;
     private string? _currentSecretVersionId;
 
     /// <summary>
@@ -25,10 +25,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        Source = source;
-
         _secretFetcher = new SecretFetcher(source.SecretsManager);
         _logger = source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
+
+        source.ConfigurationWatcher?.Start(this);
+
+        Source = source;
     }
 
     /// <summary>
@@ -43,34 +45,114 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// <inheritdoc cref="ConfigurationProvider.Load"/>
     public override void Load()
     {
+        var secretName = Source.SecretName;
+        var secretVersion = Source.Version;
+        var secretProcessor = Source.Processor;
+
+        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
+
         var startingTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var cts = new CancellationTokenSource(Source.Timeout);
-            LoadAsync(cts.Token).ConfigureAwait(false).GetAwaiter().GetResult();
+            var secret = _secretFetcher.GetSecret(secretName, secretVersion, cts.Token)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
 
-            Source.ConfigurationWatcher?.Start(this);
+            SetData(
+                versionId: secret.VersionId,
+                data: secretProcessor.GetConfigurationData(Source, secret.Value));
+
+            activity?
+                .AddEvent(new ActivityEvent("loaded"))
+                .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
+
+            _logger.SecretLoaded(secretName, secret.VersionId);
         }
         catch (Exception ex)
         {
             var elapsedTime = Stopwatch.GetElapsedTime(startingTimestamp);
+
+#if NET9_0_OR_GREATER
+            activity?
+                .AddException(ex)
+                .SetStatus(ActivityStatusCode.Error, "Error loading secret");
+#else
+            activity?
+                .AddEvent(ex.ToActivityEvent())
+                .SetStatus(ActivityStatusCode.Error, "Error loading secret");
+#endif
+
+            _logger.FailedToLoadSecret(ex, secretName);
             HandleException(ex, Source.OnLoadException, elapsedTime);
         }
     }
 
     /// <inheritdoc/>
-    public void Refresh()
+    public void Reload()
     {
+        if (Interlocked.Exchange(ref _reloadInProgress, 1) == 1)
+        {
+            return;
+        }
+
+        var secretName = Source.SecretName;
+        var secretVersion = Source.Version;
+        var secretProcessor = Source.Processor;
+
+        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
+
         var startingTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var cts = new CancellationTokenSource(Source.Timeout);
-            RefreshAsync(cts.Token).ConfigureAwait(false).GetAwaiter().GetResult();
+            var secret = _secretFetcher.GetSecret(secretName, secretVersion, cts.Token)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+
+            if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
+            {
+                activity?
+                    .AddEvent(new ActivityEvent("skipped"))
+                    .SetStatus(ActivityStatusCode.Ok, "Secret up-to-date");
+
+                _logger.SecretAlreadyLoaded(secretName, secret.VersionId);
+                return;
+            }
+
+            var previousVersionId = _currentSecretVersionId;
+            SetData(
+                versionId: secret.VersionId,
+                data: secretProcessor.GetConfigurationData(Source, secret.Value));
+
+            activity?
+                .AddEvent(new ActivityEvent("reloaded"))
+                .SetStatus(ActivityStatusCode.Ok, "Secret reloaded");
+
+            _logger.SecretRefreshed(secretName, previousVersionId ?? "N/A", secret.VersionId);
         }
         catch (Exception ex)
         {
             var elapsedTime = Stopwatch.GetElapsedTime(startingTimestamp);
-            HandleException(ex, Source.OnRefreshException, elapsedTime);
+
+#if NET9_0_OR_GREATER
+            activity?
+                .AddException(ex)
+                .SetStatus(ActivityStatusCode.Error, "Error reloading secret");
+#else
+            activity?
+                .AddEvent(ex.ToActivityEvent())
+                .SetStatus(ActivityStatusCode.Error, "Error reloading secret");
+#endif
+
+            _logger.FailedToRefreshSecret(ex, secretName);
+            HandleException(ex, Source.OnReloadException, elapsedTime);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _reloadInProgress, 0);
         }
     }
 
@@ -95,101 +177,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
     }
 
-    private async Task LoadAsync(CancellationToken cancellationToken)
-    {
-        var secretName = Source.SecretName;
-        var secretVersion = Source.Version;
-        var secretProcessor = Source.Processor;
-
-        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
-        try
-        {
-            var secret = await _secretFetcher.GetSecret(secretName, secretVersion, cancellationToken).ConfigureAwait(false);
-            SetData(
-                versionId: secret.VersionId,
-                data: secretProcessor.GetConfigurationData(Source, secret.Value));
-
-            activity?
-                .AddEvent(new ActivityEvent("loaded"))
-                .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
-
-            _logger.SecretLoaded(secretName, secret.VersionId);
-        }
-        catch (Exception ex)
-        {
-#if NET9_0_OR_GREATER
-            activity?
-                .AddException(ex)
-                .SetStatus(ActivityStatusCode.Error, "Error loading secret");
-#else
-            activity?
-                .AddEvent(ex.ToActivityEvent())
-                .SetStatus(ActivityStatusCode.Error, "Error loading secret");
-#endif
-            _logger.FailedToLoadSecret(ex, secretName);
-
-            throw;
-        }
-    }
-
-    private async Task RefreshAsync(CancellationToken cancellationToken)
-    {
-        if (Interlocked.Exchange(ref _refreshInProgress, 1) == 1)
-        {
-            return;
-        }
-
-        var secretName = Source.SecretName;
-        var secretVersion = Source.Version;
-        var secretProcessor = Source.Processor;
-
-        using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.RefreshActivityName);
-        try
-        {
-            var secret = await _secretFetcher.GetSecret(secretName, secretVersion, cancellationToken).ConfigureAwait(false);
-
-            if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
-            {
-                activity?
-                    .AddEvent(new ActivityEvent("skipped"))
-                    .SetStatus(ActivityStatusCode.Ok, "Secret up-to-date");
-
-                _logger.SecretAlreadyLoaded(secretName, secret.VersionId);
-                return;
-            }
-
-            var previousVersionId = _currentSecretVersionId;
-            SetData(
-                versionId: secret.VersionId,
-                data: secretProcessor.GetConfigurationData(Source, secret.Value));
-
-            activity?
-                .AddEvent(new ActivityEvent("refreshed"))
-                .SetStatus(ActivityStatusCode.Ok, "Secret refreshed");
-
-            _logger.SecretRefreshed(secretName, previousVersionId!, secret.VersionId);
-        }
-        catch (Exception ex)
-        {
-#if NET9_0_OR_GREATER
-            activity?
-                .AddException(ex)
-                .SetStatus(ActivityStatusCode.Error, "Error refreshing secret");
-#else
-            activity?
-                .AddEvent(ex.ToActivityEvent())
-                .SetStatus(ActivityStatusCode.Error, "Error refreshing secret");
-#endif
-
-            _logger.FailedToRefreshSecret(ex, secretName);
-            throw;
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _refreshInProgress, 0);
-        }
-    }
-
     private void SetData(string versionId, Dictionary<string, string?> data)
     {
         _currentSecretVersionId = versionId;
@@ -207,12 +194,12 @@ internal static partial class LoggerExtensions
     [LoggerMessage(555_2368_10, LogLevel.Error, "Failed to load secret {SecretName}", EventName = "FailedToLoadSecret")]
     public static partial void FailedToLoadSecret(this ILogger logger, Exception exception, string secretName);
 
-    [LoggerMessage(555_2368_22, LogLevel.Information, "Secret {SecretName}:{VersionId} is already loaded, skipping refresh", EventName = "SecretAlreadyLoaded")]
+    [LoggerMessage(555_2368_22, LogLevel.Information, "Secret {SecretName}:{VersionId} is already loaded, skipping", EventName = "SecretAlreadyLoaded")]
     public static partial void SecretAlreadyLoaded(this ILogger logger, string secretName, string versionId);
 
-    [LoggerMessage(555_2368_21, LogLevel.Information, "Secret {SecretName}:{PreviousVersionId}->{VersionId} has been refreshed", EventName = "SecretRefreshed")]
+    [LoggerMessage(555_2368_21, LogLevel.Information, "Secret {SecretName}:{PreviousVersionId}->{VersionId} has been reloaded", EventName = "SecretReloaded")]
     public static partial void SecretRefreshed(this ILogger logger, string secretName, string previousVersionId, string versionId);
 
-    [LoggerMessage(555_2368_20, LogLevel.Error, "Failed to refresh secret {SecretName}", EventName = "FailedToRefreshSecret")]
+    [LoggerMessage(555_2368_20, LogLevel.Error, "Failed to reload secret {SecretName}", EventName = "FailedToReloadSecret")]
     public static partial void FailedToRefreshSecret(this ILogger logger, Exception exception, string secretName);
 }

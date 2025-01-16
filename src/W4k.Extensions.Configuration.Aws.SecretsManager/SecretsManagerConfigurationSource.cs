@@ -83,9 +83,9 @@ public class SecretsManagerConfigurationSource : IConfigurationSource
     public Action<SecretsManagerExceptionContext>? OnLoadException { get; set; }
 
     /// <summary>
-    /// Gets or sets action to be executed when exception occurs during refreshing secret.
+    /// Gets or sets action to be executed when exception occurs during reloading secret.
     /// </summary>
-    public Action<SecretsManagerExceptionContext>? OnRefreshException { get; set; }
+    public Action<SecretsManagerExceptionContext>? OnReloadException { get; set; }
 
     /// <summary>
     /// Gets or sets logger factory.

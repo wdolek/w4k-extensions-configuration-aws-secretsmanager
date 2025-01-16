@@ -57,10 +57,24 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         _timer = _clock.CreateTimer(ExecuteRefresh, provider, _interval, _interval);
     }
 
+    /// <inheritdoc/>
+    public void Stop()
+    {
+        if (_timer is null)
+        {
+            return;
+        }
+
+        _timer.Change(TimeSpan.MaxValue, TimeSpan.MaxValue);
+        _timer.Dispose();
+
+        _timer = null;
+    }
+
     private static void ExecuteRefresh(object? state)
     {
-        var refresher = (ISecretsManagerConfigurationProvider)state!;
-        refresher.Refresh();
+        var provider = (ISecretsManagerConfigurationProvider)state!;
+        provider.Reload();
     }
 
     private static void ThrowIfStarted(ITimer? timer)

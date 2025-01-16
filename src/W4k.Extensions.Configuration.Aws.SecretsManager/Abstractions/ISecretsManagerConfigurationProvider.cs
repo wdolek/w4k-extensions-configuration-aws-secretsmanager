@@ -16,7 +16,7 @@ public interface ISecretsManagerConfigurationProvider
     void Load();
 
     /// <summary>
-    /// Refreshes the configuration.
+    /// Invokes reloading of the configuration.
     /// </summary>
-    void Refresh();
+    void Reload();
 }

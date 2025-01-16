@@ -27,7 +27,7 @@ public class SecretsManagerConfigSourceShould
     public void ThrowWhenSecretNotFound()
     {
         // act & assert
-        Assert.Throws<SecretNotFoundException>(
+        Assert.Throws<SecretRetrievalException>(
             () =>
             {
                 new ConfigurationBuilder()

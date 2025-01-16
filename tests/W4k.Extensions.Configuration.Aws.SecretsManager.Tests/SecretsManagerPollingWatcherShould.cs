@@ -18,12 +18,12 @@ public class SecretsManagerPollingWatcherShould
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<ISecretsManagerConfigurationProvider>();
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act & assert
-        watcher.Start(refresher);
-        Assert.Throws<InvalidOperationException>(() => watcher.Start(refresher));
+        watcher.Start(provider);
+        Assert.Throws<InvalidOperationException>(() => watcher.Start(provider));
     }
 
     [Test]
@@ -32,49 +32,39 @@ public class SecretsManagerPollingWatcherShould
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<ISecretsManagerConfigurationProvider>();
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
-        watcher.Start(refresher);
+        watcher.Start(provider);
 
         // assert
         // 1st refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher.Received(1).Refresh();
+        provider.Received(1).Reload();
 
         // 2nd refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher.Received(2).Refresh();
+        provider.Received(2).Reload();
     }
 
     [Test]
-    public void SwallowException()
+    public void NotSwallowException()
     {
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<ISecretsManagerConfigurationProvider>();
-        refresher
-            .When(r => r.Refresh())
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
+        provider
+            .When(r => r.Reload())
             .Throw(new InvalidOperationException("Test exception"));
 
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
-        watcher.Start(refresher);
+        watcher.Start(provider);
 
         // assert
-        // 1st refresh -> exception not thrown
-        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received()
-            .Refresh();
-
-        // 2nd refresh -> exception not thrown
-        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received()
-            .Refresh();
+        Assert.Throws<InvalidOperationException>(() => _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1))));
     }
 }
