@@ -37,10 +37,10 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         _clock = timeProvider;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public void Dispose() => _timer?.Dispose();
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         if (_timer is not null)
@@ -49,7 +49,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
     public void Start(ISecretsManagerConfigurationProvider provider)
     {

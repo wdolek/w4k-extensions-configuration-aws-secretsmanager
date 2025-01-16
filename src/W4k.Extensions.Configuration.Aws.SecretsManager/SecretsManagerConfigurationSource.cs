@@ -96,7 +96,7 @@ public class SecretsManagerConfigurationSource : IConfigurationSource
     [DisallowNull]
     public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     /// <exception cref="InvalidOperationException">Thrown when <see cref="SecretName"/> is not set.</exception>
     [SuppressMessage("ReSharper", "NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract", Justification = "Consumers of library may not have nullable reference types enabled.")]
     public IConfigurationProvider Build(IConfigurationBuilder builder)

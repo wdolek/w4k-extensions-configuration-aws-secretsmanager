@@ -36,7 +36,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// </summary>
     public SecretsManagerConfigurationSource Source { get; }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public override string ToString() =>
         $"{GetType().Name}: {Source.SecretName} ({(Source.IsOptional ? "optional" : "required")})";
 
