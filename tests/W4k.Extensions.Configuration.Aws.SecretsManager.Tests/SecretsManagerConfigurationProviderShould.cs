@@ -80,6 +80,28 @@ public class SecretsManagerConfigurationProviderShould
     }
 
     [Test]
+    public void NotThrowWhenLoadingFailsWithIgnoringLoadException()
+    {
+        // arrange
+        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        secretsManagerStub
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub,
+            OnLoadException = ctx => { ctx.Ignore = true; }
+        };
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act
+        Assert.DoesNotThrow(() => provider.Load());
+    }
+
+    [Test]
     public void NotifyRefreshChangeOnNewValue()
     {
         // arrange
