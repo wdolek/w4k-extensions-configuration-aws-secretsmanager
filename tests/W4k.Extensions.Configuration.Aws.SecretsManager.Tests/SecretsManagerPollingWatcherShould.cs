@@ -22,8 +22,8 @@ public class SecretsManagerPollingWatcherShould
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act & assert
-        watcher.Start(provider);
-        Assert.Throws<InvalidOperationException>(() => watcher.Start(provider));
+        watcher.StartWatching(provider);
+        Assert.Throws<InvalidOperationException>(() => watcher.StartWatching(provider));
     }
 
     [Test]
@@ -36,7 +36,7 @@ public class SecretsManagerPollingWatcherShould
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
-        watcher.Start(provider);
+        watcher.StartWatching(provider);
 
         // assert
         // 1st refresh
@@ -62,7 +62,7 @@ public class SecretsManagerPollingWatcherShould
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
-        watcher.Start(provider);
+        watcher.StartWatching(provider);
 
         // assert
         Assert.Throws<InvalidOperationException>(() => _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1))));

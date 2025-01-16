@@ -28,7 +28,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         _secretFetcher = new SecretFetcher(source.SecretsManager);
         _logger = source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
-        source.ConfigurationWatcher?.Start(this);
+        source.ConfigurationWatcher?.StartWatching(this);
 
         Source = source;
     }

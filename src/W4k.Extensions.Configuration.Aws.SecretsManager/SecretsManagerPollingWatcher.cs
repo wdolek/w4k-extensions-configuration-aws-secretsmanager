@@ -51,14 +51,14 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
 
     /// <inheritdoc/>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
-    public void Start(ISecretsManagerConfigurationProvider provider)
+    public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
         ThrowIfStarted(_timer);
         _timer = _clock.CreateTimer(ExecuteRefresh, provider, _interval, _interval);
     }
 
     /// <inheritdoc/>
-    public void Stop()
+    public void StopWatching()
     {
         if (_timer is null)
         {
