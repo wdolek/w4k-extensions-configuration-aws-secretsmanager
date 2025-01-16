@@ -27,7 +27,7 @@ public class SecretsManagerPollingWatcherShould
     }
 
     [Test]
-    public void ExecuteRefreshAfterInterval()
+    public void ExecuteReloadAfterInterval()
     {
         // arrange
         var interval = TimeSpan.FromMinutes(5);
@@ -66,5 +66,30 @@ public class SecretsManagerPollingWatcherShould
 
         // assert
         Assert.Throws<InvalidOperationException>(() => _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1))));
+    }
+
+    [Test]
+    public void NotExecuteReloadAfterSopped()
+    {
+        // arrange
+        var interval = TimeSpan.FromMinutes(5);
+
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
+        var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
+
+        // act & assert
+        watcher.StartWatching(provider);
+
+        // 1st refresh
+        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
+        provider.Received(1).Reload();
+        provider.ClearReceivedCalls();
+
+        // stop watching
+        watcher.StopWatching();
+
+        // 2nd refresh should not be called
+        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
+        provider.DidNotReceive().Reload();
     }
 }

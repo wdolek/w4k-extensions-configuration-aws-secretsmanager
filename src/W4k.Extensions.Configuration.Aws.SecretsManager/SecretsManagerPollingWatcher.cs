@@ -65,7 +65,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
             return;
         }
 
-        _timer.Change(TimeSpan.MaxValue, TimeSpan.MaxValue);
+        _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         _timer.Dispose();
 
         _timer = null;
