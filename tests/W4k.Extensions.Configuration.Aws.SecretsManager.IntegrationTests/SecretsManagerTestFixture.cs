@@ -1,7 +1,6 @@
 ﻿using Amazon;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.SecretsManager;
-using Amazon.SecretsManager.Model;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
@@ -16,7 +15,7 @@ public class SecretsManagerTestFixture
     public static string ComplexSecretName { get; private set; } = "";
 
     [OneTimeSetUp]
-    public void OneTimeSetUp()
+    public void OneTimeSetup()
     {
         var storeChain = new CredentialProfileStoreChain();
         if (!storeChain.TryGetAWSCredentials(AwsProfileName, out var credentials))
@@ -25,12 +24,13 @@ public class SecretsManagerTestFixture
         }
 
         var guid = Guid.NewGuid().ToString("N")[^8..];
-        KeyValueSecretName = $"{TestSecrets.KeyValueSecretName}/{guid}";
-        ComplexSecretName = $"{TestSecrets.ComplexSecretName}/{guid}";
-
         var client = new AmazonSecretsManagerClient(credentials, RegionEndpoint.EUWest1);
-        CreateSecret(client, KeyValueSecretName, TestSecrets.KeyValueJson).GetAwaiter().GetResult();
-        CreateSecret(client, ComplexSecretName, TestSecrets.ComplexJson).GetAwaiter().GetResult();
+
+        KeyValueSecretName = $"{TestSecrets.KeyValueSecretName}/{guid}";
+        client.CreateSecret(KeyValueSecretName, TestSecrets.KeyValueJson).GetAwaiter().GetResult();
+
+        ComplexSecretName = $"{TestSecrets.ComplexSecretName}/{guid}";
+        client.CreateSecret(ComplexSecretName, TestSecrets.ComplexJson).GetAwaiter().GetResult();
 
         SecretsManagerClient = client;
     }
@@ -39,27 +39,11 @@ public class SecretsManagerTestFixture
     public void OneTimeTearDown()
     {
         var client = SecretsManagerClient;
-        DeleteSecret(client, KeyValueSecretName).GetAwaiter().GetResult();
-        DeleteSecret(client, ComplexSecretName).GetAwaiter().GetResult();
+
+        client.DeleteSecret(KeyValueSecretName).GetAwaiter().GetResult();
+        client.DeleteSecret(ComplexSecretName).GetAwaiter().GetResult();
 
         client.Dispose();
         SecretsManagerClient = null!;
     }
-
-    private static Task CreateSecret(IAmazonSecretsManager client, string secretName, string secretValue) =>
-        client.CreateSecretAsync(
-            new CreateSecretRequest
-            {
-                Name = secretName,
-                SecretString = secretValue,
-                Description = "W4k.Extensions.Configuration.Aws.SecretsManager integration secret"
-            });
-
-    private static Task DeleteSecret(IAmazonSecretsManager client, string secretName) =>
-        client.DeleteSecretAsync(
-            new DeleteSecretRequest
-            {
-                SecretId = secretName,
-                ForceDeleteWithoutRecovery = true,
-            });
 }

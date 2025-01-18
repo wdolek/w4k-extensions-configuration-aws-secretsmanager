@@ -9,7 +9,7 @@ public class SecretsManagerPollingWatcherShould
     [SetUp]
     public void SetUp()
     {
-        _timeProvider = new FakeTimeProvider();
+        _timeProvider = new FakeTimeProvider(DateTimeOffset.Now);
     }
 
     [Test]
