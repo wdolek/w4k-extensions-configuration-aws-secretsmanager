@@ -51,7 +51,7 @@ public class SecretsManagerConfigurationProviderShould
         var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
-        // act
+        // act & assert
         var ex = Assert.Throws<SecretRetrievalException>(() => provider.Load());
         Assert.That(ex.InnerException, Is.Not.Null);
         Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
@@ -75,8 +75,65 @@ public class SecretsManagerConfigurationProviderShould
 
         var provider = new SecretsManagerConfigurationProvider(source);
 
-        // act
+        // act & assert
         Assert.DoesNotThrow(() => provider.Load());
+    }
+
+    [Test]
+    public void ThrowWhenReloadFails()
+    {
+        // arrange
+        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        secretsManagerStub
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(
+                _ => InitialSecretValueResponse,
+                _ => throw new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub
+        };
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act & assert
+        // 1. execute initial load
+        provider.Load();
+
+        // 2. execute reload
+        var ex = Assert.Throws<SecretRetrievalException>(() => provider.Reload());
+        Assert.That(ex.InnerException, Is.Not.Null);
+        Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
+    }
+
+    [Test]
+    public void NotThrowWhenReloadFailsWithIgnoringReloadException()
+    {
+        // arrange
+        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        secretsManagerStub
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(
+                _ => InitialSecretValueResponse,
+                _ => throw new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub,
+            OnReloadException = ctx => { ctx.Ignore = true; }
+        };
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act & assert
+        // 1. execute initial load
+        provider.Load();
+
+        // 2. execute reload
+        Assert.DoesNotThrow(() => provider.Reload());
     }
 
     [Test]
@@ -97,7 +154,9 @@ public class SecretsManagerConfigurationProviderShould
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(InitialSecretValueResponse, newSecretsResponse);
+            .Returns(
+                InitialSecretValueResponse,
+                newSecretsResponse);
 
         var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
@@ -128,7 +187,9 @@ public class SecretsManagerConfigurationProviderShould
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(InitialSecretValueResponse, InitialSecretValueResponse);
+            .Returns(
+                InitialSecretValueResponse,
+                InitialSecretValueResponse);
 
         var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
