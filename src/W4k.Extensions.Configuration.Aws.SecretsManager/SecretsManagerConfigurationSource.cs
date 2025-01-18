@@ -32,11 +32,6 @@ public class SecretsManagerConfigurationSource : IConfigurationSource
     public SecretVersion? Version { get; set; }
 
     /// <summary>
-    /// Gets or sets flag indicating whether secret is optional.
-    /// </summary>
-    public bool IsOptional { get; set; }
-
-    /// <summary>
     /// Gets or sets secrets processor (parsing, tokenizing), default is <see cref="SecretsProcessor.Json"/>.
     /// </summary>
     [DisallowNull]

@@ -12,6 +12,8 @@ public static class ConfigurationBuilderExtensions
 {
     private const string SecretsManagerClientKey = "W4k:SecretsManagerClient";
 
+    private static readonly Action<SecretsManagerExceptionContext> OptionalSecretExceptionHandler = context => context.Ignore = true;
+
     #region Managing shared properties
 
     /// <summary>
@@ -251,8 +253,9 @@ public static class ConfigurationBuilderExtensions
             {
                 source.SecretsManager = secretsManager!;
                 source.SecretName = secretName;
-                source.IsOptional = isOptional;
                 source.ConfigurationKeyPrefix = configurationKeyPrefix!;
+                source.OnLoadException = OptionalSecretExceptionHandler;
+                source.OnReloadException = OptionalSecretExceptionHandler;
             });
     }
 }

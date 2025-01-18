@@ -39,8 +39,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     public SecretsManagerConfigurationSource Source { get; }
 
     /// <inheritdoc/>
-    public override string ToString() =>
-        $"{GetType().Name}: {Source.SecretName} ({(Source.IsOptional ? "optional" : "required")})";
+    public override string ToString() => $"{GetType().Name}: {Source.SecretName}";
 
     /// <inheritdoc cref="ConfigurationProvider.Load"/>
     public override void Load()
@@ -159,7 +158,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     [StackTraceHidden]
     private void HandleException(Exception exception, Action<SecretsManagerExceptionContext>? callback, TimeSpan elapsedTime)
     {
-        var ignore = Source.IsOptional;
+        var ignore = false;
         if (callback is not null)
         {
             var exceptionContext = new SecretsManagerExceptionContext(this, exception, elapsedTime);
