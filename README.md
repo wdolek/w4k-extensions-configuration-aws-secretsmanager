@@ -28,13 +28,13 @@ builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
     configurationKeyPrefix: "AppSecrets");
 
-// ... and then bind configuration using `ConfigurationKeyPrefix` = "AppSecrets"
+// ... and then bind configuration using `configurationKeyPrefix: "AppSecrets"`
 builder.Services
     .AddOptions<Secrets>()
     .BindConfiguration("AppSecrets");
 ```
 
-Additionally, you can pass `IAmazonSecretsManager` to the provider:
+Additionally, you can provide instance of `IAmazonSecretsManager`:
 
 ```csharp
 // passing custom `IAmazonSecretsManager` (e.g. with custom credentials)
@@ -72,7 +72,8 @@ builder.Configuration.AddSecretsManager(
     isOptional: true);
 ```
 
-It is possible to distinguish between error happening during _load_ and _refresh_ operation by using `OnLoadException` and `OnReloadException` respectively.
+It is possible to distinguish between error happening during _load_ and _refresh_ (when enabled) operation
+by using `OnLoadException` and `OnReloadException` respectively.
 
 ```csharp
 builder.Configuration.AddSecretsManager(
@@ -118,7 +119,7 @@ When binding your option type, make sure path is considered or that you bind to 
 ### Secret processing (parsing and tokenizing)
 
 By default, AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
-In some cases, a user may want to specify a custom format, either a complex JSON object or even an XML document.
+In some cases, custom format may be used - either a complex JSON object or even an XML document (or actually anything, imagination is the limit).
 
 In order to support such scenarios, it is possible to specify custom secret processor:
 
@@ -185,7 +186,8 @@ Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manage
 
 ### Preventing hangs
 
-It may happen that there's connection issue with AWS Secrets Manager. In order to prevent unnecessary hangs, it is possible to configure timeout:
+It may happen that there's connection issue with AWS Secrets Manager. In order to prevent unnecessary hangs,
+it is possible to configure timeout:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
