@@ -54,7 +54,11 @@ public class ReloadTests
                     source.SecretsManager = SecretsManagerTestFixture.SecretsManagerClient;
                     source.SecretName = TestSecretName;
                     source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, clock);
-                    source.OnReloadException = _ => { hasReloadFailed = true; };
+                    source.OnReloadException = ctx =>
+                    {
+                        ctx.Ignore = true;
+                        hasReloadFailed = true;
+                    };
                 })
             .Build();
 
@@ -105,7 +109,7 @@ public class ReloadTests
         await Task.Delay(TimeSpan.FromSeconds(1));
         clock.Advance(pollingInterval.Add(TimeSpan.FromSeconds(1)));
 
-        // -> exception not thrown (happens on the background)
+        // -> exception not thrown
         // -> assert no state change
         Assert.Multiple(
             () =>
