@@ -254,8 +254,12 @@ public static class ConfigurationBuilderExtensions
                 source.SecretsManager = secretsManager!;
                 source.SecretName = secretName;
                 source.ConfigurationKeyPrefix = configurationKeyPrefix!;
-                source.OnLoadException = OptionalSecretExceptionHandler;
-                source.OnReloadException = OptionalSecretExceptionHandler;
+
+                if (isOptional)
+                {
+                    source.OnLoadException = OptionalSecretExceptionHandler;
+                    source.OnReloadException = OptionalSecretExceptionHandler;
+                }
             });
     }
 }
