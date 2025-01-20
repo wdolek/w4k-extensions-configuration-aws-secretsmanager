@@ -12,7 +12,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 [SuppressMessage("ReSharper", "RedundantNullableFlowAttribute", Justification = "Consumers of library may not have nullable reference types enabled.")]
 public class SecretsManagerConfigurationSource : IConfigurationSource
 {
-    private TimeSpan _timeout = TimeSpan.FromSeconds(24);
+    private TimeSpan _timeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Gets or sets secret name (or its complete ARN) to fetch.

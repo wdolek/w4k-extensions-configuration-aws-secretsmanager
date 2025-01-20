@@ -200,6 +200,8 @@ builder.Configuration.AddSecretsManager(
     });
 ```
 
+Default timeout value can be found at [`SecretsManagerConfigurationSource`](src/W4k.Extensions.Configuration.Aws.SecretsManager/SecretsManagerConfigurationSource.cs).
+
 ### Diagnostics
 
 Library uses `ActivitySource` and `Activity` to provide information about _load_ and _refresh_ operations.
