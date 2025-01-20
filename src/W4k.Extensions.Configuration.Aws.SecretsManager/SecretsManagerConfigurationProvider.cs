@@ -48,8 +48,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var watcher = Source.ConfigurationWatcher;
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
-
-        var startingTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var cts = new CancellationTokenSource(Source.Timeout);
@@ -73,8 +71,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
-            var elapsedTime = Stopwatch.GetElapsedTime(startingTimestamp);
-
 #if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
@@ -86,7 +82,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 #endif
 
             _logger.FailedToLoadSecret(ex, secretName);
-            HandleException(ex, Source.OnLoadException, elapsedTime);
+            HandleException(ex, Source.OnLoadException);
         }
     }
 
@@ -103,8 +99,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var secretProcessor = Source.Processor;
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
-
-        var startingTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var cts = new CancellationTokenSource(Source.Timeout);
@@ -136,8 +130,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
-            var elapsedTime = Stopwatch.GetElapsedTime(startingTimestamp);
-
 #if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
@@ -149,7 +141,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 #endif
 
             _logger.FailedToRefreshSecret(ex, secretName);
-            HandleException(ex, Source.OnReloadException, elapsedTime);
+            HandleException(ex, Source.OnReloadException);
         }
         finally
         {
@@ -158,12 +150,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     }
 
     [StackTraceHidden]
-    private void HandleException(Exception exception, Action<SecretsManagerExceptionContext>? callback, TimeSpan elapsedTime)
+    private void HandleException(Exception exception, Action<SecretsManagerExceptionContext>? callback)
     {
         var ignore = false;
         if (callback is not null)
         {
-            var exceptionContext = new SecretsManagerExceptionContext(this, exception, elapsedTime);
+            var exceptionContext = new SecretsManagerExceptionContext(this, exception);
 
             callback(exceptionContext);
             ignore = exceptionContext.Ignore;

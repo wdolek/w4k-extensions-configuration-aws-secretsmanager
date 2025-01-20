@@ -10,14 +10,12 @@ public sealed class SecretsManagerExceptionContext
     /// </summary>
     /// <param name="provider">The <see cref="SecretsManagerConfigurationProvider"/>.</param>
     /// <param name="exception">The <see cref="Exception"/> thrown during fetching the secret.</param>
-    /// <param name="elapsed">The elapsed time of fetching the secret until error occurred.</param>
-    public SecretsManagerExceptionContext(SecretsManagerConfigurationProvider provider, Exception exception, TimeSpan elapsed)
+    public SecretsManagerExceptionContext(SecretsManagerConfigurationProvider provider, Exception exception)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(exception);
         Provider = provider;
         Exception = exception;
-        Elapsed = elapsed;
     }
 
     /// <summary>
@@ -29,11 +27,6 @@ public sealed class SecretsManagerExceptionContext
     /// Gets the <see cref="Exception"/> thrown during loading the secret.
     /// </summary>
     public Exception Exception { get; }
-
-    /// <summary>
-    /// Gets the elapsed time of fetching the secret until error occurred.
-    /// </summary>
-    public TimeSpan Elapsed { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the exception should be ignored.
