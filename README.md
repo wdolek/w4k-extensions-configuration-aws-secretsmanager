@@ -227,8 +227,8 @@ There's helper extension method to configure activity listener:
 
 ```csharp
 var listener = new ActivityListener().ListenToSecretsManagerActivitySource(
-    startActivity => $"[{startActivity.StartTimeUtc:O}] {startActivity.Source.Name}:{startActivity.OperationName} Started"),
-    stopActivity => $"[{stopActivity.StartTimeUtc:O}] {stopActivity.Source.Name}:{stopActivity.OperationName} Stopped"));
+    onStart => Console.WriteLine($"[{onStart.StartTimeUtc:O}] {onStart.Source.Name}:{onStart.OperationName} Started"),
+    onStop => Console.WriteLine($"[{onStop.StartTimeUtc:O}] {onStop.Source.Name}:{onStop.OperationName} Stopped"));
 
 ActivitySource.AddActivityListener(listener);
 ```
