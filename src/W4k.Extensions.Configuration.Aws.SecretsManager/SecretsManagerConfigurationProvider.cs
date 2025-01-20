@@ -28,8 +28,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         _secretFetcher = new SecretFetcher(source.SecretsManager);
         _logger = source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
-        source.ConfigurationWatcher?.StartWatching(this);
-
         Source = source;
     }
 
@@ -47,6 +45,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var secretName = Source.SecretName;
         var secretVersion = Source.Version;
         var secretProcessor = Source.Processor;
+        var watcher = Source.ConfigurationWatcher;
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
 
@@ -68,6 +67,9 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
 
             _logger.SecretLoaded(secretName, secret.VersionId);
+
+            // requires initial load to succeed (even when secret is optional)
+            watcher?.StartWatching(this);
         }
         catch (Exception ex)
         {

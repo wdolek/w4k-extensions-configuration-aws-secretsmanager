@@ -72,7 +72,7 @@ builder.Configuration.AddSecretsManager(
     isOptional: true);
 ```
 
-It is possible to distinguish between error happening during _load_ and _refresh_ (when enabled) operation
+It is possible to distinguish between error happening during _load_ and _reload_ (when enabled) operation
 by using `OnLoadException` and `OnReloadException` respectively.
 
 ```csharp
@@ -91,7 +91,7 @@ Callbacks receive `SecretsManagerExceptionContext` which can be examined to deci
 
 ### Secret Version
 
-If omitted, latest version of the secret will be used, however it is possible to specify custom version or stage:
+If omitted, the latest version of the secret will be used, however it is possible to specify custom version or stage:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
@@ -183,6 +183,8 @@ For more details about _Options pattern_, see official documentation [Options pa
 
 Please note that there is associated cost of retrieving secret values from AWS Secrets Manager.
 Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for further information.
+
+Watcher is started **ONLY** when initial load is successful.
 
 ### Preventing hangs
 
