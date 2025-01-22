@@ -54,7 +54,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
         ThrowIfStarted(_timer);
-        _timer = _clock.CreateTimer(ExecuteRefresh, provider, _interval, _interval);
+        _timer = _clock.CreateTimer(ExecuteReload, provider, _interval, _interval);
     }
 
     /// <inheritdoc/>
@@ -71,7 +71,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         _timer = null;
     }
 
-    private static void ExecuteRefresh(object? state)
+    private static void ExecuteReload(object? state)
     {
         var provider = (ISecretsManagerConfigurationProvider)state!;
         provider.Reload();

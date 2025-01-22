@@ -33,7 +33,6 @@ builder.Configuration.AddSecretsManager(
         src.ConfigurationKeyPrefix = "Secret";
         src.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromSeconds(60));
         src.OnReloadException = ctx => ctx.Ignore = true;
-        src.Timeout = TimeSpan.FromSeconds(10);
     });
 
 builder.Services.AddOptions<SampleOptions>()

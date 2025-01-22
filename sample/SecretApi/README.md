@@ -1,5 +1,17 @@
 ﻿## W4k, AWS Secrets Manager configuration provider 
 
+Sample Web API application with OpenTelemetry instrumentation.
+
+Things to notice:
+
+- using AWS Secrets Manager client created using AWS options (see `appsettings.json` for configuration section)
+- using key prefix for configuration - fetched secrets need to be bound from same key prefix
+- polling watcher checks for changes every minute
+- errors occuring during reload phase are ignored (not causing application to crash)
+- "Reload" action is traced using OpenTelemetry (shown in console output and Aspire dashboard)
+
+### Scripts (PS)
+
 Create new secret:
 
 ```bash
