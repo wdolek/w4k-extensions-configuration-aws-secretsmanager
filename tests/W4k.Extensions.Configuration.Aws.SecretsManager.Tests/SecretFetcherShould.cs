@@ -98,7 +98,7 @@ public class SecretFetcherShould
         var secretFetcher = new SecretFetcher(secretsManager);
 
         // act & assert
-        Assert.ThrowsAsync<SecretNotFoundException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
+        Assert.ThrowsAsync<ResourceNotFoundException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
     }
 
     [Test]

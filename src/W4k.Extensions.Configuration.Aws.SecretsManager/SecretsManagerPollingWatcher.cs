@@ -37,10 +37,10 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         _clock = timeProvider;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public void Dispose() => _timer?.Dispose();
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         if (_timer is not null)
@@ -49,25 +49,32 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
-    public void Start(IConfigurationRefresher refresher)
+    public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
         ThrowIfStarted(_timer);
-        _timer = _clock.CreateTimer(ExecuteRefresh, refresher, _interval, _interval);
+        _timer = _clock.CreateTimer(ExecuteReload, provider, _interval, _interval);
     }
 
-    private static void ExecuteRefresh(object? state)
+    /// <inheritdoc/>
+    public void StopWatching()
     {
-        var refresher = (IConfigurationRefresher)state!;
-        try
+        if (_timer is null)
         {
-            refresher.RefreshAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            return;
         }
-        catch
-        {
-            // no-op
-        }
+
+        _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _timer.Dispose();
+
+        _timer = null;
+    }
+
+    private static void ExecuteReload(object? state)
+    {
+        var provider = (ISecretsManagerConfigurationProvider)state!;
+        provider.Reload();
     }
 
     private static void ThrowIfStarted(ITimer? timer)

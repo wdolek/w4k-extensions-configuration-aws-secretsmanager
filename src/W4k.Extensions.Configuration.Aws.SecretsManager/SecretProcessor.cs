@@ -20,7 +20,7 @@ public static class SecretsProcessor
 
 /// <inheritdoc/>
 /// <remarks>
-/// Helper class to simplify creation of custom secrets processor.
+/// Helper class to simplify creation of custom secrets' processor.
 /// </remarks>
 public class SecretProcessor<T> : ISecretProcessor
 {
@@ -42,17 +42,17 @@ public class SecretProcessor<T> : ISecretProcessor
     }
 
     /// <inheritdoc/>
-    public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationProviderOptions options, string secretString)
+    public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString)
     {
         if (!_parser.TryParse(secretString, out var secretValue))
         {
-            throw new FormatException($"Secret '{options.SecretName}' cannot be parsed, have you used appropriate secrets processor?");
+            throw new FormatException($"Secret '{source.SecretName}' cannot be parsed, have you used appropriate secrets processor?");
         }
 
-        var transformers = CollectionsMarshal.AsSpan(options.KeyTransformers);
+        var transformers = CollectionsMarshal.AsSpan(source.KeyTransformers);
 
         var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, value) in _tokenizer.Tokenize(secretValue, options.ConfigurationKeyPrefix))
+        foreach (var (key, value) in _tokenizer.Tokenize(secretValue, source.ConfigurationKeyPrefix))
         {
             var transformedKey = key;
             foreach (var t in transformers)

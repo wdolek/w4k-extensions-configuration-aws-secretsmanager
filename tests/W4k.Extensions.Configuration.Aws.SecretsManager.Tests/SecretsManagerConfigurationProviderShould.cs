@@ -5,8 +5,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretsManagerConfigurationProviderShould
 {
-    private static readonly SecretsManagerConfigurationProviderOptions TestOptions = new("le-secret");
-
     private static readonly GetSecretValueResponse InitialSecretValueResponse = new()
     {
         VersionId = "d6d1b757d46d449d1835a10869dfb9d1",
@@ -26,7 +24,7 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Returns(InitialSecretValueResponse);
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -50,15 +48,17 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
-        // act
-        Assert.Throws<SecretNotFoundException>(() => provider.Load());
+        // act & assert
+        var ex = Assert.Throws<SecretRetrievalException>(() => provider.Load());
+        Assert.That(ex.InnerException, Is.Not.Null);
+        Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
     }
 
     [Test]
-    public void NotThrowWhenLoadingFailsButSourceIsOptional()
+    public void NotThrowWhenLoadingFailsWithIgnoringLoadException()
     {
         // arrange
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
@@ -66,21 +66,81 @@ public class SecretsManagerConfigurationProviderShould
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
-        var source = new SecretsManagerConfigurationSource(
-            new SecretsManagerConfigurationProviderOptions("le-secret") { IsOptional = true },
-            secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub,
+            OnLoadException = ctx => { ctx.Ignore = true; }
+        };
 
         var provider = new SecretsManagerConfigurationProvider(source);
 
-        // act
+        // act & assert
         Assert.DoesNotThrow(() => provider.Load());
     }
 
     [Test]
-    public async Task NotifyRefreshChangeOnNewValue()
+    public void ThrowWhenReloadFails()
     {
         // arrange
-        var refreshedResponse = new GetSecretValueResponse
+        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        secretsManagerStub
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(
+                _ => InitialSecretValueResponse,
+                _ => throw new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub
+        };
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act & assert
+        // 1. execute initial load
+        provider.Load();
+
+        // 2. execute reload
+        var ex = Assert.Throws<SecretRetrievalException>(() => provider.Reload());
+        Assert.That(ex.InnerException, Is.Not.Null);
+        Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
+    }
+
+    [Test]
+    public void NotThrowWhenReloadFailsWithIgnoringReloadException()
+    {
+        // arrange
+        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        secretsManagerStub
+            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .Returns(
+                _ => InitialSecretValueResponse,
+                _ => throw new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+
+        var source = new SecretsManagerConfigurationSource
+        {
+            SecretName = "le-secret",
+            SecretsManager = secretsManagerStub,
+            OnReloadException = ctx => { ctx.Ignore = true; }
+        };
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act & assert
+        // 1. execute initial load
+        provider.Load();
+
+        // 2. execute reload
+        Assert.DoesNotThrow(() => provider.Reload());
+    }
+
+    [Test]
+    public void NotifyRefreshChangeOnNewValue()
+    {
+        // arrange
+        var newSecretsResponse = new GetSecretValueResponse
         {
             VersionId = "d6d1b757d46d449d1835a10869dfb9d2",
             SecretString = """
@@ -94,9 +154,11 @@ public class SecretsManagerConfigurationProviderShould
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(InitialSecretValueResponse, refreshedResponse);
+            .Returns(
+                InitialSecretValueResponse,
+                newSecretsResponse);
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -105,7 +167,7 @@ public class SecretsManagerConfigurationProviderShould
 
         // 2. execute reload
         var reloadToken = provider.GetReloadToken();
-        await provider.RefreshAsync(CancellationToken.None);
+        provider.Reload();
 
         // assert
         Assert.That(reloadToken.HasChanged, Is.True);
@@ -119,15 +181,17 @@ public class SecretsManagerConfigurationProviderShould
     }
 
     [Test]
-    public async Task NotNotifyRefreshChangeOnSameValue()
+    public void NotNotifyRefreshChangeOnSameValue()
     {
         // arrange
         var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
         secretsManagerStub
             .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(InitialSecretValueResponse, InitialSecretValueResponse);
+            .Returns(
+                InitialSecretValueResponse,
+                InitialSecretValueResponse);
 
-        var source = new SecretsManagerConfigurationSource(TestOptions, secretsManagerStub);
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -136,7 +200,7 @@ public class SecretsManagerConfigurationProviderShould
 
         // 2. execute reload
         var reloadToken = provider.GetReloadToken();
-        await provider.RefreshAsync(CancellationToken.None);
+        provider.Reload();
 
         // assert
         Assert.That(reloadToken.HasChanged, Is.False);

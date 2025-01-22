@@ -85,4 +85,30 @@ public class JsonElementTokenizerShould
             Assert.That(result[7].Value, Is.EqualTo("True"));
         });
     }
+
+    [Test]
+    public void NotTokenizeJsonStringValue()
+    {
+        // arrange
+        var json = """
+            {
+                "key": "{ \"subkey\": \"value\" }"
+            }
+            """;
+
+        var jsonElement = JsonDocument.Parse(json).RootElement;
+        var tokenizer = new JsonElementTokenizer();
+
+        // act
+        var result = tokenizer
+            .Tokenize(jsonElement, "")
+            .ToList();
+
+        // assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result[0].Key, Is.EqualTo("key"));
+            Assert.That(result[0].Value, Is.EqualTo("{ \"subkey\": \"value\" }"));
+        });
+    }
 }

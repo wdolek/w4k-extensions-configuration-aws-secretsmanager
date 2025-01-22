@@ -1,177 +1,128 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Amazon.SecretsManager;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
-internal class SecretsManagerConfigurationSource : IConfigurationSource
+/// <summary>
+/// AWS Secrets Manager configuration source.
+/// </summary>
+[SuppressMessage("ReSharper", "RedundantNullableFlowAttribute", Justification = "Consumers of library may not have nullable reference types enabled.")]
+public class SecretsManagerConfigurationSource : IConfigurationSource
 {
-    public SecretsManagerConfigurationSource(SecretsManagerConfigurationProviderOptions options, IAmazonSecretsManager client)
+    private TimeSpan _timeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Gets or sets secret name (or its complete ARN) to fetch.
+    /// </summary>
+    [DisallowNull]
+    public string SecretName { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets AWS Secrets Manager client.
+    /// </summary>
+    [DisallowNull]
+    public IAmazonSecretsManager SecretsManager { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets secret version to fetch, if not provided, latest version of secret is fetched.
+    /// </summary>
+    public SecretVersion? Version { get; set; }
+
+    /// <summary>
+    /// Gets or sets secrets processor (parsing, tokenizing), default is <see cref="SecretsProcessor.Json"/>.
+    /// </summary>
+    [DisallowNull]
+    public ISecretProcessor Processor { get; set; } = SecretsProcessor.Json;
+
+    /// <summary>
+    /// Gets list of configuration key transformers applied after tokenization.
+    /// </summary>
+    /// <remarks>
+    /// Transformers are applied in the order they are added to the list.
+    /// Result of previous transformer is input for the next one.
+    /// By default, only <see cref="KeyDelimiterTransformer"/> is present.
+    /// </remarks>
+    public List<IConfigurationKeyTransformer> KeyTransformers { get; } = [new KeyDelimiterTransformer()];
+
+    /// <summary>
+    /// Gets or sets configuration key prefix, if not set, secret properties are placed directly in configuration root.
+    /// </summary>
+    [DisallowNull]
+    public string ConfigurationKeyPrefix { get; set; } = "";
+
+    /// <summary>
+    /// Gets or sets configuration change watcher.
+    /// </summary>
+    public IConfigurationWatcher? ConfigurationWatcher { get; set; }
+
+    /// <summary>
+    /// The timeout for the secret fetch operation.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when value is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
+    public TimeSpan Timeout
     {
-        Options = options;
-        SecretsManager = client;
+        get => _timeout;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
+            _timeout = value;
+        }
     }
 
-    public SecretsManagerConfigurationProviderOptions Options { get; }
-    public IAmazonSecretsManager SecretsManager { get; }
+    /// <summary>
+    /// Gets or sets action to be executed when exception occurs during loading secret.
+    /// </summary>
+    public Action<SecretsManagerExceptionContext>? OnLoadException { get; set; }
 
-    public IConfigurationProvider Build(IConfigurationBuilder builder) =>
-        new SecretsManagerConfigurationProvider(this);
+    /// <summary>
+    /// Gets or sets action to be executed when exception occurs during reloading secret.
+    /// </summary>
+    public Action<SecretsManagerExceptionContext>? OnReloadException { get; set; }
+
+    /// <summary>
+    /// Gets or sets logger factory.
+    /// </summary>
+    /// <remarks>
+    /// By default, <see cref="NullLoggerFactory"/> is used.
+    /// </remarks>
+    [DisallowNull]
+    public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
+
+    /// <inheritdoc/>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="SecretName"/> is not set.</exception>
+    [SuppressMessage("ReSharper", "NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract", Justification = "Consumers of library may not have nullable reference types enabled.")]
+    public IConfigurationProvider Build(IConfigurationBuilder builder)
+    {
+        if (string.IsNullOrWhiteSpace(SecretName))
+        {
+            throw new InvalidOperationException("Secret name must be provided.");
+        }
+
+        // ensure default values
+        SecretsManager ??= builder.GetSecretsManagerClient() ?? new AmazonSecretsManagerClient();
+        ConfigurationKeyPrefix ??= String.Empty;
+        Processor ??= SecretsProcessor.Json;
+        LoggerFactory ??= NullLoggerFactory.Instance;
+
+        return new SecretsManagerConfigurationProvider(this);
+    }
 }
 
 /// <summary>
-/// Extensions for <see cref="IConfigurationBuilder"/> to add AWS Secrets Manager as configuration source.
+/// Representation of secret version.
 /// </summary>
-public static class SecretsManagerConfigurationExtensions
+public sealed class SecretVersion
 {
     /// <summary>
-    /// Adds secrets manager as configuration source.
+    /// Gets or sets secret version ID.
     /// </summary>
-    /// <remarks>
-    /// This extension methods uses default <see cref="AmazonSecretsManagerClient"/> instance.
-    /// </remarks>
-    /// <param name="builder">Configuration builder.</param>
-    /// <param name="secretName">Secret name or ID.</param>
-    /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
-    public static IConfigurationBuilder AddSecretsManager(
-        this IConfigurationBuilder builder,
-        string secretName,
-        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
-    {
-        var client = new AmazonSecretsManagerClient();
-        return builder.AddSecretsManager(secretName, client, configureOptions);
-    }
+    public string? VersionId { get; init; }
 
     /// <summary>
-    /// Adds secrets manager as configuration source.
+    /// Gets or sets custom stage name.
     /// </summary>
-    /// <param name="builder">Configuration builder.</param>
-    /// <param name="secretName">Secret name or ID.</param>
-    /// <param name="client">AWS Secrets Manager client.</param>
-    /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="client"/> is <see langword="null"/>.</exception>
-    public static IConfigurationBuilder AddSecretsManager(
-        this IConfigurationBuilder builder,
-        string secretName,
-        IAmazonSecretsManager client,
-        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
-    {
-        ArgumentNullException.ThrowIfNull(secretName);
-        ArgumentNullException.ThrowIfNull(client);
-
-        var options = new SecretsManagerConfigurationProviderOptions(secretName);
-        configureOptions?.Invoke(options);
-
-        return builder.AddSecretsManager(options, client);
-    }
-
-    /// <summary>
-    /// Adds secrets manager as configuration source.
-    /// </summary>
-    /// <remarks>
-    /// This extension methods uses default <see cref="AmazonSecretsManagerClient"/> instance.
-    /// </remarks>
-    /// <param name="builder">Configuration builder.</param>
-    /// <param name="secretNames">Collection of secret names to fetch from AWS Secrets Manager.</param>
-    /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
-    public static IConfigurationBuilder AddSecretsManager(
-        this IConfigurationBuilder builder,
-        IReadOnlyList<string> secretNames,
-        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
-    {
-        var client = new AmazonSecretsManagerClient();
-        return builder.AddSecretsManager(secretNames, client, configureOptions);
-    }
-
-    /// <summary>
-    /// Adds secrets manager as configuration source.
-    /// </summary>
-    /// <param name="builder">Configuration builder.</param>
-    /// <param name="secretNames">Collection of secret names to fetch from AWS Secrets Manager.</param>
-    /// <param name="client">AWS Secrets Manager client.</param>
-    /// <param name="configureOptions">A delegate that is invoked to set up the AWS Secrets Manager Configuration options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretNames"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="secretNames"/> is empty.</exception>
-    public static IConfigurationBuilder AddSecretsManager(
-        this IConfigurationBuilder builder,
-        IReadOnlyList<string> secretNames,
-        IAmazonSecretsManager client,
-        Action<SecretsManagerConfigurationProviderOptions>? configureOptions = null)
-    {
-        ArgumentNullException.ThrowIfNull(secretNames);
-
-        if (secretNames.Count == 0)
-        {
-            ThrowOnEmptySecretNames(secretNames);
-        }
-        else if (secretNames.Count == 1)
-        {
-            CreateAndConfigureOptions(builder, secretNames[0]);
-        }
-        else
-        {
-            foreach (var secretName in secretNames)
-            {
-                CreateAndConfigureOptions(builder, secretName);
-            }
-        }
-
-        return builder;
-
-        void CreateAndConfigureOptions(IConfigurationBuilder cb, string secretName)
-        {
-            var options = new SecretsManagerConfigurationProviderOptions(secretName);
-            configureOptions?.Invoke(options);
-
-            cb.AddSecretsManager(options, client);
-        }
-    }
-
-    /// <summary>
-    /// Adds secrets manager as configuration source.
-    /// </summary>
-    /// <param name="builder">Configuration builder.</param>
-    /// <param name="options">Secrets Manager configuration provider options.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
-    public static IConfigurationBuilder AddSecretsManager(
-        this IConfigurationBuilder builder,
-        SecretsManagerConfigurationProviderOptions options)
-    {
-        var client = new AmazonSecretsManagerClient();
-        return builder.AddSecretsManager(options, client);
-    }
-
-    /// <summary>
-    /// Adds secrets manager as configuration source.
-    /// </summary>
-    /// <param name="builder">Configuration builder.</param>
-    /// <param name="options">Secrets Manager configuration provider options.</param>
-    /// <param name="client">AWS Secrets Manager client.</param>
-    /// <returns>Instance of <see cref="IConfigurationBuilder"/>.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="client"/> is <see langword="null"/>.</exception>
-    public static IConfigurationBuilder AddSecretsManager(
-        this IConfigurationBuilder builder,
-        SecretsManagerConfigurationProviderOptions options,
-        IAmazonSecretsManager client)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(client);
-
-        return builder.Add(new SecretsManagerConfigurationSource(options, client));
-    }
-
-    [DoesNotReturn]
-    private static void ThrowOnEmptySecretNames(
-        IReadOnlyCollection<string> secretNames,
-        [CallerArgumentExpression(nameof(secretNames))] string? paramName = null)
-    {
-        throw new ArgumentException("At least one secret name must be provided.", paramName);
-    }
+    public string? VersionStage { get; init; }
 }

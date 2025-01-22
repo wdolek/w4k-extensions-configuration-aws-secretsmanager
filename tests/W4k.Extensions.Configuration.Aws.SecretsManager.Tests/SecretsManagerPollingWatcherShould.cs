@@ -9,7 +9,7 @@ public class SecretsManagerPollingWatcherShould
     [SetUp]
     public void SetUp()
     {
-        _timeProvider = new FakeTimeProvider();
+        _timeProvider = new FakeTimeProvider(DateTimeOffset.Now);
     }
 
     [Test]
@@ -18,67 +18,78 @@ public class SecretsManagerPollingWatcherShould
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<IConfigurationRefresher>();
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act & assert
-        watcher.Start(refresher);
-        Assert.Throws<InvalidOperationException>(() => watcher.Start(refresher));
+        watcher.StartWatching(provider);
+        Assert.Throws<InvalidOperationException>(() => watcher.StartWatching(provider));
     }
 
     [Test]
-    public void ExecuteRefreshAfterInterval()
+    public void ExecuteReloadAfterInterval()
     {
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<IConfigurationRefresher>();
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
-        watcher.Start(refresher);
+        watcher.StartWatching(provider);
 
         // assert
         // 1st refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received(1)
-            .RefreshAsync(Arg.Any<CancellationToken>());
+        provider.Received(1).Reload();
 
         // 2nd refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received(2)
-            .RefreshAsync(Arg.Any<CancellationToken>());
+        provider.Received(2).Reload();
     }
 
     [Test]
-    public void SwallowException()
+    public void NotSwallowException()
     {
         // arrange
         var interval = TimeSpan.FromMinutes(5);
 
-        var refresher = Substitute.For<IConfigurationRefresher>();
-        refresher
-            .When(r => r.RefreshAsync(Arg.Any<CancellationToken>()))
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
+        provider
+            .When(r => r.Reload())
             .Throw(new InvalidOperationException("Test exception"));
 
         var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
 
         // act
-        watcher.Start(refresher);
+        watcher.StartWatching(provider);
 
         // assert
-        // 1st refresh -> exception not thrown
-        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received()
-            .RefreshAsync(Arg.Any<CancellationToken>());
+        Assert.Throws<InvalidOperationException>(() => _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1))));
+    }
 
-        // 2nd refresh -> exception not thrown
+    [Test]
+    public void NotExecuteReloadAfterSopped()
+    {
+        // arrange
+        var interval = TimeSpan.FromMinutes(5);
+
+        var provider = Substitute.For<ISecretsManagerConfigurationProvider>();
+        var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
+
+        // act & assert
+        watcher.StartWatching(provider);
+
+        // 1st refresh
         _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
-        refresher
-            .Received()
-            .RefreshAsync(Arg.Any<CancellationToken>());
+        provider.Received(1).Reload();
+        provider.ClearReceivedCalls();
+
+        // stop watching
+        watcher.StopWatching();
+
+        // 2nd refresh should not be called
+        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
+        provider.DidNotReceive().Reload();
     }
 }
