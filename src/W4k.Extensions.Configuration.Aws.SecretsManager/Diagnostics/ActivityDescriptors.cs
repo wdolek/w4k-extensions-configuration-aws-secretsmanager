@@ -18,9 +18,9 @@ public static class ActivityDescriptors
     public static readonly string LoadActivityName = "Load";
 
     /// <summary>
-    /// Name of activity representing consecutive load of secrets from AWS Secrets Manager.
+    /// Name of activity representing reload of secrets from AWS Secrets Manager.
     /// </summary>
     public static readonly string ReloadActivityName = "Reload";
 
-    internal static ActivitySource Source { get; } = new(ActivitySourceName);
+    internal static ActivitySource Source { get; } = new(ActivitySourceName, "2.0");
 }
