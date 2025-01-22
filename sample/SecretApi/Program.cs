@@ -1,18 +1,26 @@
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
 using Amazon.SecretsManager;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using W4k.Extensions.Configuration.Aws.SecretsManager;
 using W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var listener = new ActivityListener().ListenToSecretsManagerActivitySource(
-    onStart => Console.WriteLine($"[{onStart.StartTimeUtc:O}] {onStart.Source.Name}:{onStart.OperationName} Started"),
-    onStop => Console.WriteLine($"[{onStop.StartTimeUtc:O}] {onStop.Source.Name}:{onStop.OperationName} Stopped"));
+// OpenTelemetry instrumentation:
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("SecretApi"))
+    .WithTracing(
+        tracing =>
+        {
+            tracing.AddAspNetCoreInstrumentation()
+                .AddSource(ActivityDescriptors.ActivitySourceName)
+                .AddConsoleExporter()
+                .AddOtlpExporter();
+        });
 
-ActivitySource.AddActivityListener(listener);
-
+// AWS Secrets Manager configuration:
 var secretsManager = builder.Configuration
     .GetAWSOptions()
     .CreateServiceClient<IAmazonSecretsManager>();
@@ -24,6 +32,7 @@ builder.Configuration.AddSecretsManager(
         src.SecretName = "w4k/awssm/sample-secret";
         src.ConfigurationKeyPrefix = "Secret";
         src.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromSeconds(60));
+        src.OnReloadException = ctx => ctx.Ignore = true;
         src.Timeout = TimeSpan.FromSeconds(10);
     });
 
