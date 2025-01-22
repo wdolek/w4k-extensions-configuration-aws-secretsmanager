@@ -7,6 +7,8 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager.Json;
 
 internal sealed class JsonElementTokenizer : IConfigurationTokenizer<JsonElement>
 {
+    // Tokenization inspired by `JsonConfigurationFileParser` from `Microsoft.Extensions.Configuration.Json`
+    // https://github.com/dotnet/runtime/blob/main/src/libraries/Microsoft.Extensions.Configuration.Json/src/JsonConfigurationFileParser.cs
     [SuppressMessage("ReSharper", "CognitiveComplexity", Justification = "ಠ_ಠ")]
     public IEnumerable<KeyValuePair<string, string?>> Tokenize(JsonElement input, string prefix)
     {

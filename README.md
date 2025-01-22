@@ -26,54 +26,79 @@ var builder = WebApplication.CreateBuilder(args);
 // add AWS Secrets Manager Configuration Provider for specific secret
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    c => c.ConfigurationKeyPrefix = "AppSecrets");
+    configurationKeyPrefix: "AppSecrets");
 
-// ... and then bind configuration using `ConfigurationKeyPrefix` = "AppSecrets"
+// ... and then bind configuration using `configurationKeyPrefix: "AppSecrets"`
 builder.Services
     .AddOptions<Secrets>()
     .BindConfiguration("AppSecrets");
 ```
 
-Additionally, you can pass `IAmazonSecretsManager` to the provider:
+Additionally, you can provide instance of `IAmazonSecretsManager`:
 
 ```csharp
 // passing custom `IAmazonSecretsManager` (e.g. with custom credentials)
 var client = new AmazonSecretsManagerClient(/* ... */);
 builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
     client,
-    c => c.ConfigurationKeyPrefix = "AppSecrets");
+    "my-secret-secrets",
+    configurationKeyPrefix: "AppSecrets");
 ```
 
-In order to add multiple secrets while sharing same configuration,
-it's possible to use another overload of `AddSecretsManager` method:
+To add more secrets while sharing the same Amazon Secrets Manager client, you can set a default instance first like this:
 
 ```csharp
-// add AWS Secrets Manager Configuration Provider for multiple secrets
-builder.Configuration.AddSecretsManager(["my-first-secret", "my-second-secret"]);
+var client = new AmazonSecretsManagerClient(/* ... */);
+builder.Configuration.SetSecretsManagerClient(client)
+    .AddSecretsManager("my-first-secret")
+    .AddSecretsManager("my-second-secret");
 ```
 
 ## Configuration
 
+Configuration is possible using several `AddSecretsManager` overloads. Shortcut methods for adding Secrets Manager
+configuration source allows to specify secret name, optionality or configuration key prefix.
+
+Specifying more complex configuration can be done using `AddSecretsManager` method with configure callback.
+
 ### Optional secret
 
 When adding a configuration source, given secret is mandatory by default - meaning if the secret is not found, or it's not possible 
-to fetch it, an exception is thrown. To make it optional, set `IsOptional` property to `true`:
-
-```csharp
-builder.Configuration.AddSecretsManager("my-secret-secrets", c => c.IsOptional = true);
-```
-
-### Secret Version
-
-If omitted, latest version of the secret will be used, however it is possible to specify custom version or stage:
+to fetch it, an exception is thrown. To make it optional, set `isOptional` parameter to `true`:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    c =>
+    isOptional: true);
+```
+
+It is possible to distinguish between error happening during _load_ and _reload_ (when enabled) operation
+by using `OnLoadException` and `OnReloadException` respectively.
+
+```csharp
+builder.Configuration.AddSecretsManager(
+    source =>
     {
-        c.Version = new SecretVersion { VersionId = "d6d1b757d46d449d1835a10869dfb9d1" };
+        source.SecretName = "my-secret-secrets";
+
+        // ignore exception (do not throw)
+        source.OnLoadException = ctx => { ctx.Ignore = true; };
+        source.OnReloadException = ctx => { ctx.Ignore = true; };
+    });
+```
+
+Callbacks receive `SecretsManagerExceptionContext` which can be examined to decide whether to ignore the exception or not by flagging its `Ignore` property. 
+
+### Secret Version
+
+If omitted, the latest version of the secret will be used, however it is possible to specify custom version or stage:
+
+```csharp
+builder.Configuration.AddSecretsManager(
+    source =>
+    {
+        source.SecretName = "my-secret-secrets";
+        source.Version = new SecretVersion { VersionId = "d6d1b757d46d449d1835a10869dfb9d1" };
     });
 ```
 
@@ -85,10 +110,7 @@ or to group secret values for further binding, it is possible to specify configu
 ```csharp
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    c => 
-    {
-        c.ConfigurationKeyPrefix = "Clients:MyService";
-    });
+    configurationKeyPrefix: "Clients:MyService");
 ```
 
 With example above, secret property of name `Password` will be transformed to `Clients:MyService:Password`.
@@ -97,17 +119,18 @@ When binding your option type, make sure path is considered or that you bind to 
 ### Secret processing (parsing and tokenizing)
 
 By default, AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
-In some cases, a user may want to specify a custom format, either a complex JSON object or even an XML document.
+In some cases, custom format may be used - either a complex JSON object or even an XML document (or actually anything, imagination is the limit).
 
 In order to support such scenarios, it is possible to specify custom secret processor:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
-    c => 
+    source =>
     {
+        source.SecretName = "my-secret-secrets";
+        
         // implements `ISecretsProcessor`
-        c.Processor = new MyCustomSecretProcessor();
+        source.Processor = new MyCustomSecretProcessor();
     });
 ```
 
@@ -125,18 +148,19 @@ To add custom transformation, use property `KeyTransformers`:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
-    c => 
+    source =>
     {
+        source.SecretName = "my-secret-secrets";
+
         // implements `IConfigurationKeyTransformer`
-        c.KeyDelimiterTransformer.Add(new MyCustomKeyTransformer());
+        source.KeyTransformers.Add(new MyCustomKeyTransformer());
     });
 ```
 
 It is also possible to clear transformers by simply calling `Clear()` method.
 
 ```csharp
-c.KeyDelimiterTransformer.Clear();
+source.KeyTransformers.Clear();
 ```
 
 ### Refreshing secrets
@@ -145,15 +169,14 @@ By default, secrets are not refreshed. In order to enable refreshing, you can co
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
-    c => 
+    source =>
     {
+        source.SecretName = "my-secret-secrets";
+        
         // implements `IConfigurationWatcher`
-        c.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5));
+        source.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5));
     });
 ```
-
-The watcher won't be started if the initial secret load fails.
 
 When refreshing secrets, use `IOptionsSnapshot<T>` or `IOptionsMonitor<T>` instead of just `IOptions<T>`.
 For more details about _Options pattern_, see official documentation [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options).
@@ -161,20 +184,56 @@ For more details about _Options pattern_, see official documentation [Options pa
 Please note that there is associated cost of retrieving secret values from AWS Secrets Manager.
 Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for further information.
 
-### Startup behavior
+Watcher is started **ONLY** when initial load is successful.
 
-It may happen that there's connection issue with AWS Secrets Manager. In order to prevent unnecessary hangs, it is possible to configure startup timeout:
+### Preventing hangs
+
+It may happen that there's connection issue with AWS Secrets Manager. In order to prevent unnecessary hangs,
+it is possible to configure timeout:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
-    c => 
+    source => 
     {
-        c.Startup.Timeout = TimeSpan.FromSeconds(42);
+        source.SecretName = "my-secret-secrets";
+        source.Timeout = TimeSpan.FromSeconds(42);
     });
 ```
 
-If the secret is not loaded within the specified timeout **AND** the source is not optional, an exception will be thrown.
+Default timeout value can be found at [`SecretsManagerConfigurationSource`](src/W4k.Extensions.Configuration.Aws.SecretsManager/SecretsManagerConfigurationSource.cs).
+
+### Diagnostics
+
+Library uses `ActivitySource` and `Activity` to provide information about _load_ and _refresh_ operations.
+To be able to see traces, it is necessary to listen to activity source named "`W4k.Extensions.Configuration.Aws.SecretsManager`".
+
+#### Open Telemetry
+
+Using Open Telemetry package(s), it is possible to add tracing to your application following way:
+
+```csharp
+var otel = builder.Services.AddOpenTelemetry();
+otel.WithTracing(tracing => tracing
+    .AddSource(W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics.ActivityDescriptors.ActivitySourceName)
+    .AddConsoleExporter());
+```
+
+Since _Load_ happens before host is fully built, you won't see _Load_ activity this way. It is still possible to trace _Refresh_ operation though.
+
+#### Activity listener
+
+With or without Open Telemetry, it is also possible to simply hook activity listener into your application.
+There's helper extension method to configure activity listener:
+
+```csharp
+var listener = new ActivityListener().ListenToSecretsManagerActivitySource(
+    onStart => Console.WriteLine($"[{onStart.StartTimeUtc:O}] {onStart.Source.Name}:{onStart.OperationName} Started"),
+    onStop => Console.WriteLine($"[{onStop.StartTimeUtc:O}] {onStop.Source.Name}:{onStop.OperationName} Stopped"));
+
+ActivitySource.AddActivityListener(listener);
+```
+
+When listener is registered this way in very early stage of the application, it is possible to see _Load_ activity as well.
 
 ### Logging
 
@@ -182,15 +241,16 @@ It is possible to configure logging for the provider:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    "my-secret-secrets",
-    c => 
+    source => 
     {
+        source.SecretName = "my-secret-secrets";
+        
         // using Microsoft.Extensions.Logging
-        c.LoggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
+        source.LoggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
     });
 ```
 
-By default logging is disabled (by using `NullLoggerFactory`).
+By default, logging is disabled (by using `NullLoggerFactory`).
 
 Since logging happens during the host build phase (before the application is fully built), it's not possible to use the final application logger.
 Perhaps you will need to configure logging twice - once for the provider and once for the application.

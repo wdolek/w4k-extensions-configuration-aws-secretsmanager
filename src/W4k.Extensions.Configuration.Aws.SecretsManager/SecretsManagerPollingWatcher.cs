@@ -8,7 +8,9 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDisposable, IAsyncDisposable
 {
     private readonly TimeSpan _interval;
-    private Timer? _timer;
+    private readonly TimeProvider _clock;
+
+    private ITimer? _timer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
@@ -16,46 +18,66 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     /// <param name="interval">Polling interval.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerPollingWatcher(TimeSpan interval)
+        : this(interval, TimeProvider.System)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(interval, TimeSpan.Zero);
-        _interval = interval;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
+    /// </summary>
+    /// <param name="interval">Polling interval.</param>
+    /// <param name="timeProvider">Time provider.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
+    public SecretsManagerPollingWatcher(TimeSpan interval, TimeProvider timeProvider)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(interval, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        _interval = interval;
+        _clock = timeProvider;
+    }
+
+    /// <inheritdoc/>
     public void Dispose() => _timer?.Dispose();
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        if (_timer != null)
+        if (_timer is not null)
         {
             await _timer.DisposeAsync();
         }
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc/>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
-    public void Start(IConfigurationRefresher refresher)
+    public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
         ThrowIfStarted(_timer);
-        _timer = new Timer(ExecuteRefresh, refresher, _interval, _interval);
+        _timer = _clock.CreateTimer(ExecuteReload, provider, _interval, _interval);
     }
 
-    [SuppressMessage("ReSharper", "ExplicitCallerInfoArgument", Justification = "Explicitly passing activity name")]
-    private static void ExecuteRefresh(object? state)
+    /// <inheritdoc/>
+    public void StopWatching()
     {
-        var refresher = (IConfigurationRefresher)state!;
-        try
+        if (_timer is null)
         {
-            refresher.RefreshAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            return;
         }
-        catch
-        {
-            // no-op
-        }
+
+        _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _timer.Dispose();
+
+        _timer = null;
     }
 
-    private static void ThrowIfStarted(Timer? timer)
+    private static void ExecuteReload(object? state)
+    {
+        var provider = (ISecretsManagerConfigurationProvider)state!;
+        provider.Reload();
+    }
+
+    private static void ThrowIfStarted(ITimer? timer)
     {
         if (timer is not null)
         {

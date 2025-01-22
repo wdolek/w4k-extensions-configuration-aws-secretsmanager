@@ -3,41 +3,8 @@ using Microsoft.Extensions.Configuration;
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
 [Category("Integration")]
-public class SecretsManagerConfigSourceShould
+public class FetchTests
 {
-    [Test]
-    public void ThrowWhenSecretNotFound()
-    {
-        // act & assert
-        Assert.Throws<SecretNotFoundException>(
-            () =>
-            {
-                new ConfigurationBuilder().AddSecretsManager(
-                        "w4k/awssm/unknown-secret-mandatory",
-                        SecretsManagerTestFixture.SecretsManagerClient)
-                    .Build();
-            });
-    }
-
-    [Test]
-    public void NotThrowWhenSecretIsOptional()
-    {
-        // act & assert
-        IConfiguration config = null!;
-        Assert.DoesNotThrow(
-            () =>
-            {
-                config = new ConfigurationBuilder().AddSecretsManager(
-                        "w4k/awssm/unknown-secret-optional",
-                        SecretsManagerTestFixture.SecretsManagerClient,
-                        c => c.IsOptional = true)
-                    .Build();
-            });
-
-        Assert.That(config, Is.Not.Null);
-        Assert.That(config.AsEnumerable(), Is.Empty);
-    }
-
     [Test]
     public void FetchSecrets()
     {
@@ -49,9 +16,8 @@ public class SecretsManagerConfigSourceShould
         };
 
         // act
-        var config = new ConfigurationBuilder().AddSecretsManager(
-                SecretsManagerTestFixture.KeyValueSecretName,
-                SecretsManagerTestFixture.SecretsManagerClient)
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.KeyValueSecretName)
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -74,10 +40,11 @@ public class SecretsManagerConfigSourceShould
         };
 
         // act
-        var config = new ConfigurationBuilder().AddSecretsManager(
-                SecretsManagerTestFixture.KeyValueSecretName,
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(
                 SecretsManagerTestFixture.SecretsManagerClient,
-                c => c.ConfigurationKeyPrefix = "App:Secrets")
+                SecretsManagerTestFixture.KeyValueSecretName,
+                configurationKeyPrefix: "App:Secrets")
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -99,10 +66,14 @@ public class SecretsManagerConfigSourceShould
         var customKeyTransformer = new TestKeyTransformer(s => s.Replace("Client", "").ToLowerInvariant());
 
         // act
-        var config = new ConfigurationBuilder().AddSecretsManager(
-                SecretsManagerTestFixture.KeyValueSecretName,
-                SecretsManagerTestFixture.SecretsManagerClient,
-                c => c.KeyTransformers.Add(customKeyTransformer))
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(
+                source =>
+                {
+                    source.SecretsManager = SecretsManagerTestFixture.SecretsManagerClient;
+                    source.SecretName = SecretsManagerTestFixture.KeyValueSecretName;
+                    source.KeyTransformers.Add(customKeyTransformer);
+                })
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -133,30 +104,14 @@ public class SecretsManagerConfigSourceShould
         };
 
         // act
-        var config = new ConfigurationBuilder().AddSecretsManager(
-                SecretsManagerTestFixture.ComplexSecretName,
-                SecretsManagerTestFixture.SecretsManagerClient)
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.ComplexSecretName)
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
 
         // assert
         Assert.That(secrets, Is.EquivalentTo(expected));
-    }
-
-    [Test]
-    public void FetchMultipleSecrets()
-    {
-        // act
-        var config = new ConfigurationBuilder().AddSecretsManager(
-                [SecretsManagerTestFixture.KeyValueSecretName, SecretsManagerTestFixture.ComplexSecretName],
-                SecretsManagerTestFixture.SecretsManagerClient)
-            .Build();
-
-        var secrets = config.AsEnumerable().ToList();
-
-        // assert
-        Assert.That(secrets, Has.Count.EqualTo(15));
     }
 
     private class TestKeyTransformer : IConfigurationKeyTransformer

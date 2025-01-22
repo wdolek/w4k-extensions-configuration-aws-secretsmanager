@@ -22,26 +22,3 @@ public class SecretRetrievalException : Exception
     {
     }
 }
-
-/// <summary>
-/// Thrown when requested secret is not found.
-/// </summary>
-public class SecretNotFoundException : Exception
-{
-    /// <inheritdoc/>
-    public SecretNotFoundException()
-    {
-    }
-
-    /// <inheritdoc/>
-    public SecretNotFoundException(string message)
-        : base(message)
-    {
-    }
-
-    /// <inheritdoc/>
-    public SecretNotFoundException(string message, Exception inner)
-        : base(message, inner)
-    {
-    }
-}
