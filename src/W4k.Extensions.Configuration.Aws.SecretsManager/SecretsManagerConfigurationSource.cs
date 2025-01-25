@@ -150,7 +150,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <param name="versionId">Version ID.</param>
     /// <param name="versionStage">Version stage name.</param>
     /// <returns>Current builder instance.</returns>
-    public SecretsManagerConfigurationBuilder WithVersion(string? versionId, string? versionStage)
+    public SecretsManagerConfigurationBuilder WithVersion(string? versionId = null, string? versionStage = null)
     {
         _source.Version = new SecretVersion
         {

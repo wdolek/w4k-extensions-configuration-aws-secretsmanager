@@ -76,15 +76,12 @@ It is possible to distinguish between error happening during _load_ and _reload_
 by using `OnLoadException` and `OnReloadException` respectively.
 
 ```csharp
+// ignore exception (do not throw)
 builder.Configuration.AddSecretsManager(
-    source =>
-    {
-        source.SecretName = "my-secret-secrets";
-
-        // ignore exception (do not throw)
-        source.OnLoadException = ctx => { ctx.Ignore = true; };
-        source.OnReloadException = ctx => { ctx.Ignore = true; };
-    });
+    "my-secret-secrets",
+    source => source
+        .OnLoadException(ctx => { ctx.Ignore = true; })
+        .OnReloadException(ctx => { ctx.Ignore = true; }));
 ```
 
 Callbacks receive `SecretsManagerExceptionContext` which can be examined to decide whether to ignore the exception or not by flagging its `Ignore` property. 
@@ -95,11 +92,8 @@ If omitted, the latest version of the secret will be used, however it is possibl
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    source =>
-    {
-        source.SecretName = "my-secret-secrets";
-        source.Version = new SecretVersion { VersionId = "d6d1b757d46d449d1835a10869dfb9d1" };
-    });
+    "my-secret-secrets",
+    source => source.WithVersion(versionId: "d6d1b757d46d449d1835a10869dfb9d1"));
 ```
 
 ### Configuration key prefix
@@ -124,14 +118,10 @@ In some cases, custom format may be used - either a complex JSON object or even 
 In order to support such scenarios, it is possible to specify custom secret processor:
 
 ```csharp
+// implements `ISecretsProcessor`
 builder.Configuration.AddSecretsManager(
-    source =>
-    {
-        source.SecretName = "my-secret-secrets";
-        
-        // implements `ISecretsProcessor`
-        source.Processor = new MyCustomSecretProcessor();
-    });
+    "my-secret-secrets",
+    source => source.WithProcessor(new MyCustomSecretProcessor()));
 ```
 
 There's helper class [`SecretProcessor<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/SecretProcessor.cs) which
@@ -147,20 +137,20 @@ By default, only [`KeyDelimiterTransformer`](src/W4k.Extensions.Configuration.Aw
 To add custom transformation, use property `KeyTransformers`:
 
 ```csharp
+// implements `IConfigurationKeyTransformer`
 builder.Configuration.AddSecretsManager(
-    source =>
-    {
-        source.SecretName = "my-secret-secrets";
-
-        // implements `IConfigurationKeyTransformer`
-        source.KeyTransformers.Add(new MyCustomKeyTransformer());
-    });
+    "my-secret-secrets",
+    source => source.AddKeyTransformer(new MyCustomKeyTransformer()));
 ```
 
-It is also possible to clear transformers by simply calling `Clear()` method.
+It is also possible to clear transformers by simply calling `Clear()`, respectively `ClearKeyTransformers()`, method.
 
 ```csharp
+// assigning values directly to `SecretsManagerConfigurationSource`
 source.KeyTransformers.Clear();
+
+// using `SecretsManagerConfigurationBuilder`
+source.ClearKeyTransformers();
 ```
 
 ### Refreshing secrets
@@ -168,14 +158,17 @@ source.KeyTransformers.Clear();
 By default, secrets are not refreshed. In order to enable refreshing, you can configure `ConfigurationWatcher` property:
 
 ```csharp
+// implements `IConfigurationWatcher`
 builder.Configuration.AddSecretsManager(
-    source =>
-    {
-        source.SecretName = "my-secret-secrets";
-        
-        // implements `IConfigurationWatcher`
-        source.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5));
-    });
+    "my-secret-secrets",
+    source => source.WithConfigurationWatcher(new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5)));
+```
+
+```csharp
+// uses `SecretsManagerPollingWatcher`
+builder.Configuration.AddSecretsManager(
+    "my-secret-secrets",
+    source => source.WithPollingWatcher(TimeSpan.FromMinutes(5));
 ```
 
 When refreshing secrets, use `IOptionsSnapshot<T>` or `IOptionsMonitor<T>` instead of just `IOptions<T>`.
@@ -193,11 +186,8 @@ it is possible to configure timeout:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
-    source => 
-    {
-        source.SecretName = "my-secret-secrets";
-        source.Timeout = TimeSpan.FromSeconds(42);
-    });
+    "my-secret-secrets",
+    source => source.WithTimeout(TimeSpan.FromSeconds(42)));
 ```
 
 Default timeout value can be found at [`SecretsManagerConfigurationSource`](src/W4k.Extensions.Configuration.Aws.SecretsManager/SecretsManagerConfigurationSource.cs).
@@ -240,14 +230,10 @@ When listener is registered this way in very early stage of the application, it 
 It is possible to configure logging for the provider:
 
 ```csharp
+// using Microsoft.Extensions.Logging
 builder.Configuration.AddSecretsManager(
-    source => 
-    {
-        source.SecretName = "my-secret-secrets";
-        
-        // using Microsoft.Extensions.Logging
-        source.LoggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
-    });
+    "my-secret-secrets",
+    source => source.WithLoggerFactory(LoggerFactory.Create(logging => logging.AddConsole())));
 ```
 
 By default, logging is disabled (by using `NullLoggerFactory`).
