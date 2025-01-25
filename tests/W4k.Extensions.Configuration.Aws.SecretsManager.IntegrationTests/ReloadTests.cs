@@ -49,17 +49,16 @@ public class ReloadTests
         // build configuration, load secret for the first time
         var config = new ConfigurationBuilder()
             .AddSecretsManager(
-                source =>
-                {
-                    source.SecretsManager = SecretsManagerTestFixture.SecretsManagerClient;
-                    source.SecretName = TestSecretName;
-                    source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, clock);
-                    source.OnReloadException = ctx =>
-                    {
-                        ctx.Ignore = true;
-                        hasReloadFailed = true;
-                    };
-                })
+                TestSecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithPollingWatcher(pollingInterval, clock)
+                    .OnReloadException(
+                        ctx =>
+                        {
+                            ctx.Ignore = true;
+                            hasReloadFailed = true;
+                        }))
             .Build();
 
         var reloadToken = config.GetReloadToken();

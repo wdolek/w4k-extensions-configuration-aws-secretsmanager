@@ -26,14 +26,11 @@ var secretsManager = builder.Configuration
     .CreateServiceClient<IAmazonSecretsManager>();
 
 builder.Configuration.AddSecretsManager(
-    src =>
-    {
-        src.SecretsManager = secretsManager;
-        src.SecretName = "w4k/awssm/sample-secret";
-        src.ConfigurationKeyPrefix = "Secret";
-        src.ConfigurationWatcher = new SecretsManagerPollingWatcher(TimeSpan.FromSeconds(60));
-        src.OnReloadException = ctx => ctx.Ignore = true;
-    });
+    "w4k/awssm/sample-secret",
+    source => source.WithSecretsManager(secretsManager)
+        .WithConfigurationKeyPrefix("Secret")
+        .WithPollingWatcher(TimeSpan.FromSeconds(60))
+        .OnReloadException(ctx => ctx.Ignore = true));
 
 builder.Services.AddOptions<SampleOptions>()
     .BindConfiguration("Secret")

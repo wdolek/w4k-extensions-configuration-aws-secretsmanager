@@ -68,12 +68,10 @@ public class FetchTests
         // act
         var config = new ConfigurationBuilder()
             .AddSecretsManager(
-                source =>
-                {
-                    source.SecretsManager = SecretsManagerTestFixture.SecretsManagerClient;
-                    source.SecretName = SecretsManagerTestFixture.KeyValueSecretName;
-                    source.KeyTransformers.Add(customKeyTransformer);
-                })
+                SecretsManagerTestFixture.KeyValueSecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .AddKeyTransformer(customKeyTransformer))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
