@@ -12,7 +12,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
     private readonly SecretFetcher _secretFetcher;
-    private readonly ILogger _logger;
 
     private int _reloadInProgress;
     private string? _currentSecretVersionId;
@@ -26,8 +25,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         ArgumentNullException.ThrowIfNull(source);
 
         _secretFetcher = new SecretFetcher(source.SecretsManager);
-        _logger = source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
-
         Source = source;
     }
 
@@ -47,6 +44,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var secretProcessor = Source.Processor;
         var watcher = Source.ConfigurationWatcher;
 
+        var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
+
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
         try
         {
@@ -64,7 +63,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .AddEvent(new ActivityEvent("loaded"))
                 .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
 
-            _logger.SecretLoaded(secretName, secret.VersionId);
+            logger.SecretLoaded(secretName, secret.VersionId);
 
             // requires initial load to succeed (even when secret is optional)
             watcher?.StartWatching(this);
@@ -81,7 +80,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .SetStatus(ActivityStatusCode.Error, "Error loading secret");
 #endif
 
-            _logger.FailedToLoadSecret(ex, secretName);
+            logger.FailedToLoadSecret(ex, secretName);
             HandleException(ex, Source.OnLoadException);
         }
     }
@@ -98,6 +97,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var secretVersion = Source.Version;
         var secretProcessor = Source.Processor;
 
+        var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
+
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
         try
         {
@@ -113,7 +114,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                     .AddEvent(new ActivityEvent("skipped"))
                     .SetStatus(ActivityStatusCode.Ok, "Secret up-to-date");
 
-                _logger.SecretAlreadyLoaded(secretName, secret.VersionId);
+                logger.SecretAlreadyLoaded(secretName, secret.VersionId);
                 return;
             }
 
@@ -126,7 +127,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .AddEvent(new ActivityEvent("reloaded"))
                 .SetStatus(ActivityStatusCode.Ok, "Secret reloaded");
 
-            _logger.SecretRefreshed(secretName, previousVersionId ?? "N/A", secret.VersionId);
+            logger.SecretRefreshed(secretName, previousVersionId ?? "N/A", secret.VersionId);
         }
         catch (Exception ex)
         {
@@ -140,7 +141,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .SetStatus(ActivityStatusCode.Error, "Error reloading secret");
 #endif
 
-            _logger.FailedToRefreshSecret(ex, secretName);
+            logger.FailedToRefreshSecret(ex, secretName);
             HandleException(ex, Source.OnReloadException);
         }
         finally
