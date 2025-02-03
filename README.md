@@ -4,10 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/release/wdolek/w4k-extensions-configuration-aws-secretsmanager.svg)](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/releases)
 [![NuGet Version](https://img.shields.io/nuget/v/W4k.Extensions.Configuration.Aws.SecretsManager.svg)](https://www.nuget.org/packages/W4k.Extensions.Configuration.Aws.SecretsManager/)
 
-> [!NOTE]
-> Following documentation is for version 2.x of the library. For version 1.x, see [README v1.x](https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager/tree/v1.2.0).
-
-Configuration provider using AWS Secrets Manager as source of data.
+Configuration provider using AWS Secrets Manager as the source of data.
 
 Using this provider, you can load secrets from AWS Secrets Manager and bind them to your configuration classes, using
 all features of Options pattern (`IOptions<T>`).
@@ -91,7 +88,7 @@ Callbacks receive `SecretsManagerExceptionContext` which can be examined to deci
 
 ### Secret Version
 
-If omitted, the latest version of the secret will be used, however it is possible to specify custom version or stage:
+If omitted, the latest version of the secret will be used. However, it is possible to specify a custom version or stage:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
