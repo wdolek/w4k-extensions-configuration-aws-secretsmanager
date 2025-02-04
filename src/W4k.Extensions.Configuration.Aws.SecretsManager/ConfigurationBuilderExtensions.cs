@@ -92,6 +92,31 @@ public static class ConfigurationBuilderExtensions
         return builder.Add(sourceBuilder.Build());
     }
 
+    /// <summary>
+    /// Adds secrets manager configuration source to <paramref name="configurationManager"/>.
+    /// </summary>
+    /// <param name="configurationManager">The <see cref="IConfigurationManager"/> to add to.</param>
+    /// <param name="secretName">Secret name or full secret ARN.</param>
+    /// <param name="configureSource">Configure the source using <see cref="SecretsManagerConfigurationBuilder"/>.</param>
+    /// <returns>The <see cref="IConfigurationBuilder"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationManager"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configureSource"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
+    public static IConfigurationBuilder AddSecretsManager(
+        this IConfigurationManager configurationManager,
+        string secretName,
+        Action<IConfiguration, SecretsManagerConfigurationBuilder> configureSource)
+    {
+        ArgumentNullException.ThrowIfNull(configurationManager);
+        ArgumentNullException.ThrowIfNull(configureSource);
+        ArgumentException.ThrowIfNullOrWhiteSpace(secretName);
+
+        var sourceBuilder = new SecretsManagerConfigurationBuilder(secretName);
+        configureSource(configurationManager, sourceBuilder);
+
+        return configurationManager.Add(sourceBuilder.Build());
+    }
+
     #region Using default AWS Secrets Manager client
 
     /// <summary>

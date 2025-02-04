@@ -61,6 +61,29 @@ configuration source allows to specify secret name, optionality or configuration
 
 Specifying more complex configuration can be done using `AddSecretsManager` method with configure callback.
 
+### Accessing existing configuration
+
+When using secrets manager configuration builder, it's also possible to access existing (already loaded) configuration:
+
+```csharp
+// using `ConfigurationManager` provided by application host builder
+builder.Configuration.AddSecretsManager(
+    "my-secret-secrets",
+    (config, source) => source.WithTimeout(config.GetValue<TimeSpan>("Secrets:FetchTimeout")))
+```
+
+assuming your `appsettings.json` contains:
+
+```json5
+{
+  "Secrets": {
+    "FetchTimeout": "00:00:10"
+  }
+}
+```
+
+(of course, you can still just capture `builder.Configuration` in configure action)
+
 ### Optional secret
 
 When adding a configuration source, given secret is mandatory by default - meaning if the secret is not found, or it's not possible 
