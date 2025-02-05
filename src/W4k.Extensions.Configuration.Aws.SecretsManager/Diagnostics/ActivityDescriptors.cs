@@ -15,12 +15,12 @@ public static class ActivityDescriptors
     /// <summary>
     /// Name of activity representing load of secrets from AWS Secrets Manager.
     /// </summary>
-    public static readonly string LoadActivityName = "Load";
+    public static readonly string LoadActivityName = "W4k.SecretsManager.Load";
 
     /// <summary>
     /// Name of activity representing reload of secrets from AWS Secrets Manager.
     /// </summary>
-    public static readonly string ReloadActivityName = "Reload";
+    public static readonly string ReloadActivityName = "W4k.SecretsManager.Reload";
 
-    internal static ActivitySource Source { get; } = new(ActivitySourceName, "2.0");
+    internal static ActivitySource Source { get; } = new(ActivitySourceName, "2.1");
 }
