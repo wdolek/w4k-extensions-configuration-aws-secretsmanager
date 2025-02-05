@@ -178,7 +178,7 @@ source.ClearKeyTransformers();
 
 ### Refreshing secrets
 
-By default, secrets are not refreshed. In order to enable refreshing, you can configure `ConfigurationWatcher` property:
+By default, secrets are not refreshed. In order to enable refreshing, you can set configuration watcher:
 
 ```csharp
 // implements `IConfigurationWatcher`
@@ -200,7 +200,8 @@ For more details about _Options pattern_, see official documentation [Options pa
 Please note that there is associated cost of retrieving secret values from AWS Secrets Manager.
 Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) for further information.
 
-Watcher is started **ONLY** when initial load is successful.
+> [!IMPORTANT]
+> Watcher is started **ONLY** when initial load is successful.
 
 ### Preventing hangs
 
@@ -263,6 +264,28 @@ By default, logging is disabled (by using `NullLoggerFactory`).
 
 Since logging happens during the host build phase (before the application is fully built), it's not possible to use the final application logger.
 Perhaps you will need to configure logging twice - once for the provider and once for the application.
+
+#### Reusing application logger
+
+If your logger requires more complex configuration you don't want to repeat (in configuration phase),
+it's possible to pass `ILoggerFactory` instance to the provider retrospectively:
+
+```csharp
+public static WebApplication UseAppLoggerInSecretsManagerConfigProvider(this WebApplication app)
+{
+    var config = app.Services.GetRequiredService<IConfiguration>();
+    if (config is IConfigurationRoot root)
+    {
+        var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+        foreach (var configProvider in root.Providers.OfType<SecretsManagerConfigurationProvider>())
+        {
+            configProvider.Source.LoggerFactory = loggerFactory;
+        }
+    }
+
+    return app;
+}
+```
 
 ## Acknowledgements
 
