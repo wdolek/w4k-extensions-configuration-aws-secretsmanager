@@ -296,6 +296,9 @@ This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager
 When using AWS Fargate (ECS), you can configure Task Definition to use Secrets Manager as a source of environment variables.
 This approach is described in [Passing sensitive data to a container / Using Secrets Manager](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html).
 
+Alternatively, AWS provides [AWSSDK.SecretsManager.Caching](https://www.nuget.org/packages/AWSSDK.SecretsManager.Caching) for local, in-process caching of secrets.
+This package does not integrate with the Microsoft configuration or options system, so using it with `IOptions<T>` or `IOptionsMonitor<T>` requires implementing your own bridge layer.
+
 ## Alternative packages
 
 - [`Kralizek.Extensions.Configuration.AWSSecretsManager`](https://www.nuget.org/packages/Kralizek.Extensions.Configuration.AWSSecretsManager)
