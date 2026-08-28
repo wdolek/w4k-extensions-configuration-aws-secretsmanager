@@ -2,14 +2,15 @@ using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
-[Category("Integration")]
+[Property("Category", "Integration")]
+[NotInParallel]
 public class FetchTests
 {
     [Test]
-    public void FetchSecrets()
+    public async Task FetchSecrets()
     {
         // arrange
-        var expected = new KeyValuePair<string, string>[]
+        var expected = new KeyValuePair<string, string?>[]
         {
             new("ClientId", "my_client_id"),
             new("ClientSecret", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
@@ -23,12 +24,12 @@ public class FetchTests
         var secrets = config.AsEnumerable().ToList();
 
         // act
-        Assert.That(secrets, Has.Count.EqualTo(2));
-        Assert.That(secrets, Is.EquivalentTo(expected));
+        await Assert.That(secrets).Count().IsEqualTo(2);
+        await Assert.That(secrets).IsEquivalentTo(expected);
     }
 
     [Test]
-    public void FetchSecretsWithPrefix()
+    public async Task FetchSecretsWithPrefix()
     {
         // arrange
         var expected = new KeyValuePair<string, string?>[]
@@ -50,14 +51,14 @@ public class FetchTests
         var secrets = config.AsEnumerable().ToList();
 
         // assert
-        Assert.That(secrets, Is.EquivalentTo(expected));
+        await Assert.That(secrets).IsEquivalentTo(expected);
     }
 
     [Test]
-    public void FetchSecretsWithKeyTransformation()
+    public async Task FetchSecretsWithKeyTransformation()
     {
         // arrange
-        var expected = new KeyValuePair<string, string>[]
+        var expected = new KeyValuePair<string, string?>[]
         {
             new("id", "my_client_id"),
             new("secret", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
@@ -77,11 +78,11 @@ public class FetchTests
         var secrets = config.AsEnumerable().ToList();
 
         // act
-        Assert.That(secrets, Is.EquivalentTo(expected));
+        await Assert.That(secrets).IsEquivalentTo(expected);
     }
 
     [Test]
-    public void FetchComplexJsonSecret()
+    public async Task FetchComplexJsonSecret()
     {
         // arrange
         var expected = new KeyValuePair<string, string?>[]
@@ -109,7 +110,7 @@ public class FetchTests
         var secrets = config.AsEnumerable().ToList();
 
         // assert
-        Assert.That(secrets, Is.EquivalentTo(expected));
+        await Assert.That(secrets).IsEquivalentTo(expected);
     }
 
     private class TestKeyTransformer : IConfigurationKeyTransformer

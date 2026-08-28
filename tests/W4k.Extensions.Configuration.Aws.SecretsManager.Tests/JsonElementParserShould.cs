@@ -5,7 +5,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public class JsonElementParserShould
 {
     [Test]
-    public void ParseJsonValueWithCommentAndTrailingComma()
+    public async Task ParseJsonValueWithCommentAndTrailingComma()
     {
         var secret = """
 {
@@ -22,48 +22,43 @@ public class JsonElementParserShould
         var parser = new JsonElementParser();
         var result = parser.TryParse(secret, out var jsonElement);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.True);
-            Assert.That(jsonElement.GetProperty("name").GetString(), Is.EqualTo("James Bond"));
-            Assert.That(jsonElement.GetProperty("gadgets").GetArrayLength(), Is.EqualTo(3));
-        });
+        await Assert.That(result).IsTrue();
+        await Assert.That(jsonElement.GetProperty("name").GetString()).IsEqualTo("James Bond");
+        await Assert.That(jsonElement.GetProperty("gadgets").GetArrayLength()).IsEqualTo(3);
     }
 
-    [TestCaseSource(nameof(GenerateInvalidJsonValues))]
-    public void NotParseInvalidJsonValue(string input)
+    [Test]
+    [MethodDataSource(nameof(GenerateInvalidJsonValues))]
+    public async Task NotParseInvalidJsonValue(string input)
     {
         var parser = new JsonElementParser();
         var result = parser.TryParse(input, out _);
 
-        Assert.That(result, Is.False);
+        await Assert.That(result).IsFalse();
     }
 
     [Test]
-    public void NotParseNonJsonValue()
+    public async Task NotParseNonJsonValue()
     {
         var invalidSecret = "This is not a JSON string.";
 
         var parser = new JsonElementParser();
         var result = parser.TryParse(invalidSecret, out _);
 
-        Assert.That(result, Is.False);
+        await Assert.That(result).IsFalse();
     }
 
-    public static IEnumerable<TestCaseData> GenerateInvalidJsonValues()
+    public static IEnumerable<string> GenerateInvalidJsonValues()
     {
-        yield return new TestCaseData("");
-
-        yield return new TestCaseData("{");
-        yield return new TestCaseData("[");
-        yield return new TestCaseData("{]");
-        yield return new TestCaseData("  ]  ");
-
-        yield return new TestCaseData(
-            """
+        yield return "";
+        yield return "{";
+        yield return "[";
+        yield return "{]";
+        yield return "  ]  ";
+        yield return """
             {
                 "key": Well, this doesn't really work as JSON, does it?
             }
-            """);
+            """;
     }
 }

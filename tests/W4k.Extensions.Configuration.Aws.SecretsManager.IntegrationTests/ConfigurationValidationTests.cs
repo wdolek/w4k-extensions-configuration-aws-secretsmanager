@@ -2,24 +2,26 @@
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
-[Category("Integration")]
+[Property("Category", "Integration")]
+[NotInParallel]
 public class ConfigurationValidationTests
 {
     [Test]
-    public void ThrowWhenSecretNameNotSet()
+    public async Task ThrowWhenSecretNameNotSet()
     {
         // act & assert
-        Assert.Throws<InvalidOperationException>(
-            () =>
-            {
-                // using `AddSecretsManager` overload without setting `SecretName`
-                new ConfigurationBuilder()
-                    .AddSecretsManager(
-                        source =>
-                        {
-                            source.SecretsManager = SecretsManagerTestFixture.SecretsManagerClient;
-                        })
-                    .Build();
-            });
+        await Assert.That(
+                () =>
+                {
+                    // using `AddSecretsManager` overload without setting `SecretName`
+                    new ConfigurationBuilder()
+                        .AddSecretsManager(
+                            source =>
+                            {
+                                source.SecretsManager = SecretsManagerTestFixture.SecretsManagerClient;
+                            })
+                        .Build();
+                })
+            .ThrowsExactly<InvalidOperationException>();
     }
 }

@@ -4,8 +4,7 @@ using Amazon.SecretsManager;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
-[SetUpFixture]
-public class SecretsManagerTestFixture
+public static class SecretsManagerTestFixture
 {
     private const string AwsProfileName = "w4ktest@admin";
 
@@ -14,8 +13,8 @@ public class SecretsManagerTestFixture
     public static string KeyValueSecretName { get; private set; } = "";
     public static string ComplexSecretName { get; private set; } = "";
 
-    [OneTimeSetUp]
-    public void OneTimeSetup()
+    [Before(Assembly)]
+    public static void OneTimeSetup()
     {
         var storeChain = new CredentialProfileStoreChain();
         if (!storeChain.TryGetAWSCredentials(AwsProfileName, out var credentials))
@@ -35,8 +34,8 @@ public class SecretsManagerTestFixture
         SecretsManagerClient = client;
     }
 
-    [OneTimeTearDown]
-    public void OneTimeTearDown()
+    [After(Assembly)]
+    public static void OneTimeTearDown()
     {
         var client = SecretsManagerClient;
 
