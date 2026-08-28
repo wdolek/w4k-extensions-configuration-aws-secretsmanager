@@ -2,39 +2,42 @@
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
-[Category("Integration")]
+[Property("Category", "Integration")]
+[NotInParallel]
 public class LoadTests
 {
     [Test]
-    public void ThrowWhenSecretNotFound()
+    public async Task ThrowWhenSecretNotFound()
     {
         // act & assert
-        Assert.Throws<SecretRetrievalException>(
-            () =>
-            {
-                new ConfigurationBuilder()
-                    .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, "w4k/awssm/unknown-secret-mandatory")
-                    .Build();
-            });
+        await Assert.That(
+                () =>
+                {
+                    new ConfigurationBuilder()
+                        .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, "w4k/awssm/unknown-secret-mandatory")
+                        .Build();
+                })
+            .ThrowsExactly<SecretRetrievalException>();
     }
 
     [Test]
-    public void NotThrowWhenSecretIsOptional()
+    public async Task NotThrowWhenSecretIsOptional()
     {
         // act & assert
         IConfiguration config = null!;
-        Assert.DoesNotThrow(
-            () =>
-            {
-                config = new ConfigurationBuilder()
-                    .AddSecretsManager(
-                        SecretsManagerTestFixture.SecretsManagerClient,
-                        "w4k/awssm/unknown-secret-optional",
-                        isOptional: true)
-                    .Build();
-            });
+        await Assert.That(
+                () =>
+                {
+                    config = new ConfigurationBuilder()
+                        .AddSecretsManager(
+                            SecretsManagerTestFixture.SecretsManagerClient,
+                            "w4k/awssm/unknown-secret-optional",
+                            isOptional: true)
+                        .Build();
+                })
+            .ThrowsNothing();
 
-        Assert.That(config, Is.Not.Null);
-        Assert.That(config.AsEnumerable(), Is.Empty);
+        await Assert.That(config).IsNotNull();
+        await Assert.That(config.AsEnumerable()).IsEmpty();
     }
 }

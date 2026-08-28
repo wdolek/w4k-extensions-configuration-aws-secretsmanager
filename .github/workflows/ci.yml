@@ -35,4 +35,4 @@ jobs:
       run: dotnet build --no-restore --configuration Release
 
     - name: Test
-      run: dotnet test --no-build --configuration Release --verbosity normal --filter "TestCategory!=Integration"
+      run: dotnet test tests/W4k.Extensions.Configuration.Aws.SecretsManager.Tests/W4k.Extensions.Configuration.Aws.SecretsManager.Tests.csproj --no-build --configuration Release

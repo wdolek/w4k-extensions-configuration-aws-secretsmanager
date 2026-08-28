@@ -18,8 +18,8 @@ source_profile = w4ktest
 
 Once credentials are set up, you can run the integration tests as any other tests in the solution.
 
-To run only unit tests (and skip integration tests), filter out tests by category:
+To run only unit tests (and skip integration tests), run the unit test project directly:
 
 ```bash
-dotnet test --filter "TestCategory!=Integration"
+dotnet test tests/W4k.Extensions.Configuration.Aws.SecretsManager.Tests/W4k.Extensions.Configuration.Aws.SecretsManager.Tests.csproj
 ```

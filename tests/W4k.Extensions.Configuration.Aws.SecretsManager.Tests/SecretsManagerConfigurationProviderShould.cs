@@ -16,15 +16,15 @@ public class SecretsManagerConfigurationProviderShould
     };
 
     [Test]
-    public void LoadSecret()
+    public async Task LoadSecret()
     {
         // arrange
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(InitialSecretValueResponse);
 
-        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -32,68 +32,66 @@ public class SecretsManagerConfigurationProviderShould
 
         // assert
         var hasKey = provider.TryGet("AppSettingsKey", out var value);
-        Assert.Multiple(() =>
-        {
-            Assert.That(hasKey, Is.True);
-            Assert.That(value, Is.EqualTo("Value"));
-        });
+        await Assert.That(hasKey).IsTrue();
+        await Assert.That(value).IsEqualTo("Value");
     }
 
     [Test]
-    public void ThrowWhenLoadingFails()
+    public async Task ThrowWhenLoadingFails()
     {
         // arrange
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
-        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act & assert
-        var ex = Assert.Throws<SecretRetrievalException>(() => provider.Load());
-        Assert.That(ex.InnerException, Is.Not.Null);
-        Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
+        var ex = await Assert.That(() => provider.Load()).ThrowsExactly<SecretRetrievalException>();
+        await Assert.That(ex!.InnerException).IsNotNull();
+        await Assert.That(ex!.InnerException).IsTypeOf<ResourceNotFoundException>();
     }
 
     [Test]
-    public void NotThrowWhenLoadingFailsWithIgnoringLoadException()
+    public async Task NotThrowWhenLoadingFailsWithIgnoringLoadException()
     {
         // arrange
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
         var source = new SecretsManagerConfigurationSource
         {
             SecretName = "le-secret",
-            SecretsManager = secretsManagerStub,
+            SecretsManager = secretsManagerStub.Object,
             OnLoadException = ctx => { ctx.Ignore = true; }
         };
 
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act & assert
-        Assert.DoesNotThrow(() => provider.Load());
+        await Assert.That(() => provider.Load()).ThrowsNothing();
     }
 
     [Test]
-    public void ThrowWhenReloadFails()
+    public async Task ThrowWhenReloadFails()
     {
         // arrange
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(
-                _ => InitialSecretValueResponse,
-                _ => throw new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+                InitialSecretValueResponse)
+            .Then()
+            .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
         var source = new SecretsManagerConfigurationSource
         {
             SecretName = "le-secret",
-            SecretsManager = secretsManagerStub
+            SecretsManager = secretsManagerStub.Object
         };
 
         var provider = new SecretsManagerConfigurationProvider(source);
@@ -103,26 +101,27 @@ public class SecretsManagerConfigurationProviderShould
         provider.Load();
 
         // 2. execute reload
-        var ex = Assert.Throws<SecretRetrievalException>(() => provider.Reload());
-        Assert.That(ex.InnerException, Is.Not.Null);
-        Assert.That(ex.InnerException, Is.TypeOf<ResourceNotFoundException>());
+        var ex = await Assert.That(() => provider.Reload()).ThrowsExactly<SecretRetrievalException>();
+        await Assert.That(ex!.InnerException).IsNotNull();
+        await Assert.That(ex!.InnerException).IsTypeOf<ResourceNotFoundException>();
     }
 
     [Test]
-    public void NotThrowWhenReloadFailsWithIgnoringReloadException()
+    public async Task NotThrowWhenReloadFailsWithIgnoringReloadException()
     {
         // arrange
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(
-                _ => InitialSecretValueResponse,
-                _ => throw new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
+                InitialSecretValueResponse)
+            .Then()
+            .Throws(new ResourceNotFoundException("(╯‵□′)╯︵┻━┻"));
 
         var source = new SecretsManagerConfigurationSource
         {
             SecretName = "le-secret",
-            SecretsManager = secretsManagerStub,
+            SecretsManager = secretsManagerStub.Object,
             OnReloadException = ctx => { ctx.Ignore = true; }
         };
 
@@ -133,11 +132,11 @@ public class SecretsManagerConfigurationProviderShould
         provider.Load();
 
         // 2. execute reload
-        Assert.DoesNotThrow(() => provider.Reload());
+        await Assert.That(() => provider.Reload()).ThrowsNothing();
     }
 
     [Test]
-    public void NotifyRefreshChangeOnNewValue()
+    public async Task NotifyRefreshChangeOnNewValue()
     {
         // arrange
         var newSecretsResponse = new GetSecretValueResponse
@@ -151,14 +150,12 @@ public class SecretsManagerConfigurationProviderShould
                 """
         };
 
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(
-                InitialSecretValueResponse,
-                newSecretsResponse);
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .ReturnsSequentially(InitialSecretValueResponse, newSecretsResponse);
 
-        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -170,28 +167,23 @@ public class SecretsManagerConfigurationProviderShould
         provider.Reload();
 
         // assert
-        Assert.That(reloadToken.HasChanged, Is.True);
+        await Assert.That(reloadToken.HasChanged).IsTrue();
 
         var hasKey = provider.TryGet("NewSettingsKey", out var value);
-        Assert.Multiple(() =>
-        {
-            Assert.That(hasKey, Is.True);
-            Assert.That(value, Is.EqualTo("New value"));
-        });
+        await Assert.That(hasKey).IsTrue();
+        await Assert.That(value).IsEqualTo("New value");
     }
 
     [Test]
-    public void NotNotifyRefreshChangeOnSameValue()
+    public async Task NotNotifyRefreshChangeOnSameValue()
     {
         // arrange
-        var secretsManagerStub = Substitute.For<IAmazonSecretsManager>();
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
         secretsManagerStub
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
-            .Returns(
-                InitialSecretValueResponse,
-                InitialSecretValueResponse);
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .ReturnsSequentially(InitialSecretValueResponse, InitialSecretValueResponse);
 
-        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub };
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
         var provider = new SecretsManagerConfigurationProvider(source);
 
         // act
@@ -203,6 +195,6 @@ public class SecretsManagerConfigurationProviderShould
         provider.Reload();
 
         // assert
-        Assert.That(reloadToken.HasChanged, Is.False);
+        await Assert.That(reloadToken.HasChanged).IsFalse();
     }
 }

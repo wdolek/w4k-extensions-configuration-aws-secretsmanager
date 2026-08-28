@@ -3,12 +3,13 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
-[Category("Integration")]
+[Property("Category", "Integration")]
+[NotInParallel]
 public class ReloadTests
 {
-    private string TestSecretName { get; set; }
+    private string TestSecretName { get; set; } = null!;
 
-    [SetUp]
+    [Before(Test)]
     public void Setup()
     {
         var secretName = $"w4k/awssm/fresh-secret/{Guid.NewGuid():N}";
@@ -22,17 +23,17 @@ public class ReloadTests
         TestSecretName = secretName;
     }
 
-    [TearDown]
-    public void TearDown()
+    [After(Test)]
+    public async Task TearDown(TestContext context)
     {
         try
         {
-            SecretsManagerTestFixture.SecretsManagerClient.DeleteSecret(TestSecretName).GetAwaiter().GetResult();
+            await SecretsManagerTestFixture.SecretsManagerClient.DeleteSecret(TestSecretName);
         }
         catch (Exception ex)
         {
             // no-op
-            TestContext.Out.WriteLine($"Failed to delete the secret: {TestSecretName} - has it been already removed? {ex.Message}");
+            context.Output.WriteLine($"Failed to delete the secret: {TestSecretName} - has it been already removed? {ex.Message}");
         }
     }
 
@@ -64,19 +65,15 @@ public class ReloadTests
         var reloadToken = config.GetReloadToken();
 
         // -> assert initial state
-        Assert.That(config["Secret"], Is.EqualTo("Joshua"));
+        await Assert.That(config["Secret"]).IsEqualTo("Joshua");
 
         // arbitrary delay
         await Task.Delay(TimeSpan.FromSeconds(1));
         clock.Advance(pollingInterval.Add(TimeSpan.FromSeconds(1)));
 
         // -> assert no state change
-        Assert.Multiple(
-            () =>
-            {
-                Assert.That(reloadToken.HasChanged, Is.False);
-                Assert.That(config["Secret"], Is.EqualTo("Joshua"));
-            });
+        await Assert.That(reloadToken.HasChanged).IsFalse();
+        await Assert.That(config["Secret"]).IsEqualTo("Joshua");
 
         // update secret
         var newSecretValue = """
@@ -92,12 +89,8 @@ public class ReloadTests
         clock.Advance(pollingInterval.Add(TimeSpan.FromSeconds(1)));
 
         // -> assert new state
-        Assert.Multiple(
-            () =>
-            {
-                Assert.That(reloadToken.HasChanged, Is.True);
-                Assert.That(config["Secret"], Is.EqualTo("Rosebud"));
-            });
+        await Assert.That(reloadToken.HasChanged).IsTrue();
+        await Assert.That(config["Secret"]).IsEqualTo("Rosebud");
 
         reloadToken = config.GetReloadToken();
 
@@ -110,14 +103,10 @@ public class ReloadTests
 
         // -> exception not thrown
         // -> assert no state change
-        Assert.Multiple(
-            () =>
-            {
-                Assert.That(reloadToken.HasChanged, Is.False);
-                Assert.That(config["Secret"], Is.EqualTo("Rosebud"));
+        await Assert.That(reloadToken.HasChanged).IsFalse();
+        await Assert.That(config["Secret"]).IsEqualTo("Rosebud");
 
-                // `OnReloadException` got executed
-                Assert.That(hasReloadFailed, Is.True);
-            });
+        // `OnReloadException` got executed
+        await Assert.That(hasReloadFailed).IsTrue();
     }
 }

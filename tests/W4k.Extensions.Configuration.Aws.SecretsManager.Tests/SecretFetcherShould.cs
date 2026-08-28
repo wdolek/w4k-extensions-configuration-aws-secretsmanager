@@ -20,21 +20,18 @@ public class SecretFetcherShould
             SecretString = secretString,
         };
 
-        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        var secretsManager = IAmazonSecretsManager.Mock();
         secretsManager
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(getSecretValueResponse);
 
-        var secretFetcher = new SecretFetcher(secretsManager);
+        var secretFetcher = new SecretFetcher(secretsManager.Object);
 
         // act
         var result = await secretFetcher.GetSecret(secretId, null, CancellationToken.None);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.VersionId, Is.EqualTo(versionId));
-            Assert.That(result.Value, Is.EqualTo(secretString));
-        });
+        await Assert.That(result.VersionId).IsEqualTo(versionId);
+        await Assert.That(result.Value).IsEqualTo(secretString);
     }
 
     [Test]
@@ -54,51 +51,48 @@ public class SecretFetcherShould
             SecretBinary = secretBinary,
         };
 
-        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        var secretsManager = IAmazonSecretsManager.Mock();
         secretsManager
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(getSecretValueResponse);
 
-        var secretFetcher = new SecretFetcher(secretsManager);
+        var secretFetcher = new SecretFetcher(secretsManager.Object);
 
         // act
         var result = await secretFetcher.GetSecret(secretId, null, CancellationToken.None);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.VersionId, Is.EqualTo(versionId));
-            Assert.That(result.Value, Is.EqualTo(secretContent));
-        });
+        await Assert.That(result.VersionId).IsEqualTo(versionId);
+        await Assert.That(result.Value).IsEqualTo(secretContent);
     }
 
     [Test]
-    public void ThrowIfSecretIsNeitherStringOrBinary()
+    public async Task ThrowIfSecretIsNeitherStringOrBinary()
     {
         // arrange
-        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        var secretsManager = IAmazonSecretsManager.Mock();
         secretsManager
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(new GetSecretValueResponse());
 
-        var secretFetcher = new SecretFetcher(secretsManager);
+        var secretFetcher = new SecretFetcher(secretsManager.Object);
 
         // act & assert
-        Assert.ThrowsAsync<SecretRetrievalException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
+        await Assert.That(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None)).ThrowsExactly<SecretRetrievalException>();
     }
 
     [Test]
-    public void ThrowIfSecretNotFound()
+    public async Task ThrowIfSecretNotFound()
     {
         // arrange
-        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        var secretsManager = IAmazonSecretsManager.Mock();
         secretsManager
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Throws(new ResourceNotFoundException("Secret not found"));
 
-        var secretFetcher = new SecretFetcher(secretsManager);
+        var secretFetcher = new SecretFetcher(secretsManager.Object);
 
         // act & assert
-        Assert.ThrowsAsync<ResourceNotFoundException>(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None));
+        await Assert.That(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None)).ThrowsExactly<ResourceNotFoundException>();
     }
 
     [Test]
@@ -115,24 +109,24 @@ public class SecretFetcherShould
             VersionStage = versionStage
         };
 
-        var secretsManager = Substitute.For<IAmazonSecretsManager>();
+        var secretsManager = IAmazonSecretsManager.Mock();
         secretsManager
-            .GetSecretValueAsync(Arg.Any<GetSecretValueRequest>(), Arg.Any<CancellationToken>())
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
             .Returns(new GetSecretValueResponse { VersionId = "d6d1b757d46d449d1835a10869dfb9d1", SecretString = "L3_S3cr37" });
 
-        var secretFetcher = new SecretFetcher(secretsManager);
+        var secretFetcher = new SecretFetcher(secretsManager.Object);
 
         // act
         await secretFetcher.GetSecret(secretId, secretVersion, CancellationToken.None);
 
         // assert
-        await secretsManager
-            .Received()
+        secretsManager
             .GetSecretValueAsync(
-                Arg.Is<GetSecretValueRequest>(
-                    r => r.SecretId == secretId
+                Is<GetSecretValueRequest>(
+                    r => r!.SecretId == secretId
                          && r.VersionId == versionId
                          && r.VersionStage == versionStage),
-                Arg.Any<CancellationToken>());
+                Any<CancellationToken>())
+            .WasCalled();
     }
 }

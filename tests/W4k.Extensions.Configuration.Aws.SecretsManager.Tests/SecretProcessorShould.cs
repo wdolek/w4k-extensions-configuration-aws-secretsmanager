@@ -5,18 +5,18 @@ public class SecretProcessorShould
     private static readonly SecretsManagerConfigurationSource ConfigSource = new() { SecretName = "le-secret" };
 
     [Test]
-    public void ThrowWhenUnableToParse()
+    public async Task ThrowWhenUnableToParse()
     {
         // arrange
         var secretString = "<xml>definitely not a JSON</xml>";
         var processor = SecretsProcessor.Json;
 
         // act & assert
-        Assert.Throws<FormatException>(() => processor.GetConfigurationData(ConfigSource, secretString));
+        await Assert.That(() => processor.GetConfigurationData(ConfigSource, secretString)).ThrowsExactly<FormatException>();
     }
 
     [Test]
-    public void ExecuteTransformationForEachKeyValuePair()
+    public async Task ExecuteTransformationForEachKeyValuePair()
     {
         // arrange
         var secretString = """
@@ -31,7 +31,7 @@ public class SecretProcessorShould
         var data = processor.GetConfigurationData(ConfigSource, secretString);
 
         // assert
-        Assert.That(data, Has.Count.EqualTo(1));
-        Assert.That(data.Keys.Single(), Is.EqualTo("App:Misc_Settings:Key"));
+        await Assert.That(data).Count().IsEqualTo(1);
+        await Assert.That(data.Keys.Single()).IsEqualTo("App:Misc_Settings:Key");
     }
 }

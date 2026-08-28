@@ -6,7 +6,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public class JsonElementTokenizerShould
 {
     [Test]
-    public void NotAddDelimiterWhenPrefixIsEmpty()
+    public async Task NotAddDelimiterWhenPrefixIsEmpty()
     {
         // arrange
         var json = """
@@ -24,11 +24,11 @@ public class JsonElementTokenizerShould
             .ToList();
 
         // assert
-        Assert.That(result[0].Key, Is.EqualTo("key"));
+        await Assert.That(result[0].Key).IsEqualTo("key");
     }
 
     [Test]
-    public void ReturnKeyValuePairsWhenTokenizingObject()
+    public async Task ReturnKeyValuePairsWhenTokenizingObject()
     {
         // arrange
         var json = """
@@ -57,37 +57,27 @@ public class JsonElementTokenizerShould
             .ToList();
 
         // assert
-        Assert.That(result, Has.Count.EqualTo(8));
-        Assert.Multiple(() =>
-        {
-            Assert.That(result[0].Key, Is.EqualTo("MI6:name"));
-            Assert.That(result[0].Value, Is.EqualTo("James Bond"));
-
-            Assert.That(result[1].Key, Is.EqualTo("MI6:age"));
-            Assert.That(result[1].Value, Is.EqualTo("45"));
-
-            Assert.That(result[2].Key, Is.EqualTo("MI6:gadgets:0"));
-            Assert.That(result[2].Value, Is.EqualTo("Jetpack"));
-
-            Assert.That(result[3].Key, Is.EqualTo("MI6:gadgets:1"));
-            Assert.That(result[3].Value, Is.EqualTo("Lotus Esprit S1"));
-
-            Assert.That(result[4].Key, Is.EqualTo("MI6:gadgets:2"));
-            Assert.That(result[4].Value, Is.EqualTo("Dentonite Toothpaste"));
-
-            Assert.That(result[5].Key, Is.EqualTo("MI6:hasLicenseToKill"));
-            Assert.That(result[5].Value, Is.EqualTo("True"));
-
-            Assert.That(result[6].Key, Is.EqualTo("MI6:married"));
-            Assert.That(result[6].Value, Is.Null);
-
-            Assert.That(result[7].Key, Is.EqualTo("MI6:permissions:kill"));
-            Assert.That(result[7].Value, Is.EqualTo("True"));
-        });
+        await Assert.That(result).Count().IsEqualTo(8);
+        await Assert.That(result[0].Key).IsEqualTo("MI6:name");
+        await Assert.That(result[0].Value).IsEqualTo("James Bond");
+        await Assert.That(result[1].Key).IsEqualTo("MI6:age");
+        await Assert.That(result[1].Value).IsEqualTo("45");
+        await Assert.That(result[2].Key).IsEqualTo("MI6:gadgets:0");
+        await Assert.That(result[2].Value).IsEqualTo("Jetpack");
+        await Assert.That(result[3].Key).IsEqualTo("MI6:gadgets:1");
+        await Assert.That(result[3].Value).IsEqualTo("Lotus Esprit S1");
+        await Assert.That(result[4].Key).IsEqualTo("MI6:gadgets:2");
+        await Assert.That(result[4].Value).IsEqualTo("Dentonite Toothpaste");
+        await Assert.That(result[5].Key).IsEqualTo("MI6:hasLicenseToKill");
+        await Assert.That(result[5].Value).IsEqualTo("True");
+        await Assert.That(result[6].Key).IsEqualTo("MI6:married");
+        await Assert.That(result[6].Value).IsNull();
+        await Assert.That(result[7].Key).IsEqualTo("MI6:permissions:kill");
+        await Assert.That(result[7].Value).IsEqualTo("True");
     }
 
     [Test]
-    public void NotTokenizeJsonStringValue()
+    public async Task NotTokenizeJsonStringValue()
     {
         // arrange
         var json = """
@@ -105,10 +95,7 @@ public class JsonElementTokenizerShould
             .ToList();
 
         // assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result[0].Key, Is.EqualTo("key"));
-            Assert.That(result[0].Value, Is.EqualTo("{ \"subkey\": \"value\" }"));
-        });
+        await Assert.That(result[0].Key).IsEqualTo("key");
+        await Assert.That(result[0].Value).IsEqualTo("{ \"subkey\": \"value\" }");
     }
 }

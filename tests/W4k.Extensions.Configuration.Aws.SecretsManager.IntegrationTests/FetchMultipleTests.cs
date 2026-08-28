@@ -2,11 +2,12 @@
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
 
-[Category("Integration")]
+[Property("Category", "Integration")]
+[NotInParallel]
 public class FetchMultipleTests
 {
     [Test]
-    public void FetchMultipleSecrets()
+    public async Task FetchMultipleSecrets()
     {
         // act
         var config = new ConfigurationBuilder()
@@ -17,11 +18,11 @@ public class FetchMultipleTests
         var secrets = config.AsEnumerable().ToList();
 
         // assert
-        Assert.That(secrets, Has.Count.EqualTo(15));
+        await Assert.That(secrets).Count().IsEqualTo(15);
     }
 
     [Test]
-    public void FetchMultipleSecretsUsingSharedClient()
+    public async Task FetchMultipleSecretsUsingSharedClient()
     {
         // act
         var config = new ConfigurationBuilder()
@@ -33,6 +34,6 @@ public class FetchMultipleTests
         var secrets = config.AsEnumerable().ToList();
 
         // assert
-        Assert.That(secrets, Has.Count.EqualTo(15));
+        await Assert.That(secrets).Count().IsEqualTo(15);
     }
 }

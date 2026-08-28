@@ -3,11 +3,11 @@
 public class KeyDelimiterTransformerShould
 {
     [Test]
-    public void ReplaceDoubleUnderscoreWithKeyDelimiter()
+    public async Task ReplaceDoubleUnderscoreWithKeyDelimiter()
     {
         var transformer = new KeyDelimiterTransformer();
         var result = transformer.Transform("App__Settings__Key");
 
-        Assert.That(result, Is.EqualTo("App:Settings:Key"));
+        await Assert.That(result).IsEqualTo("App:Settings:Key");
     }
 }
