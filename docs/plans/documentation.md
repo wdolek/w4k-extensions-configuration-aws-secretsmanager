@@ -6,7 +6,7 @@ Cheap, low-risk wins. No code changes.
 
 ## D1. Document what `isOptional` actually swallows
 
-**Status:** open · **Effort:** XS · **Priority:** high
+**Status:** done · **Effort:** XS · **Priority:** high
 **Related:** [A3](api-surface.md#a3-narrow-what-optional-means)
 
 ### Why
