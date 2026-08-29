@@ -33,6 +33,7 @@ Three constraints shape almost every decision in this library:
 | [0009](0009-secrets-manager-client-resolution.md) | Secrets Manager client resolution | Accepted |
 | [0010](0010-diagnostics-and-late-bound-logging.md) | Diagnostics and late-bound logging | Accepted |
 | [0011](0011-target-frameworks-and-api-compatibility.md) | Target frameworks and API compatibility | Accepted |
+| [0012](0012-snapshot-key-transformers-at-build-time.md) | Snapshot key transformers at build time | Accepted |
 
 ## Format
 

@@ -1,5 +1,6 @@
 ﻿using Amazon.SecretsManager;
 using Amazon.SecretsManager.Model;
+using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -196,5 +197,55 @@ public class SecretsManagerConfigurationProviderShould
 
         // assert
         await Assert.That(reloadToken.HasChanged).IsFalse();
+    }
+
+    [Test]
+    public async Task NotApplyKeyTransformersAddedAfterBuild()
+    {
+        // arrange
+        var initialSecretValueResponse = new GetSecretValueResponse
+        {
+            VersionId = "d6d1b757d46d449d1835a10869dfb9d1",
+            SecretString = """
+                {
+                    "AppSettings__Key": "Value"
+                }
+                """
+        };
+
+        var newSecretValueResponse = new GetSecretValueResponse
+        {
+            VersionId = "d6d1b757d46d449d1835a10869dfb9d2",
+            SecretString = """
+                {
+                    "AppSettings__Key": "New value"
+                }
+                """
+        };
+
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
+        secretsManagerStub
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .ReturnsSequentially(initialSecretValueResponse, newSecretValueResponse);
+
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
+        var provider = (SecretsManagerConfigurationProvider)source.Build(new ConfigurationBuilder());
+
+        // act
+        provider.Load();
+
+        // mutating key transformers after the source was built must not affect reloads
+        source.KeyTransformers.Clear();
+
+        provider.Reload();
+
+        // assert
+        // - transformed key is still present, with the new value
+        var hasKey = provider.TryGet("AppSettings:Key", out var value);
+        await Assert.That(hasKey).IsTrue();
+        await Assert.That(value).IsEqualTo("New value");
+
+        // - untransformed key was not introduced
+        await Assert.That(provider.TryGet("AppSettings__Key", out _)).IsFalse();
     }
 }

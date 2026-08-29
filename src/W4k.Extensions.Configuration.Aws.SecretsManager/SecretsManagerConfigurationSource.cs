@@ -48,6 +48,11 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     public List<IConfigurationKeyTransformer> KeyTransformers { get; } = [new KeyDelimiterTransformer()];
 
     /// <summary>
+    /// Gets snapshot of <see cref="KeyTransformers"/> taken when the source is built, <see langword="null"/> when the source has not been built yet.
+    /// </summary>
+    internal IConfigurationKeyTransformer[]? KeyTransformersSnapshot { get; private set; }
+
+    /// <summary>
     /// Gets or sets configuration key prefix, if not set, secret properties are placed directly in configuration root.
     /// </summary>
     [DisallowNull]
@@ -106,6 +111,9 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
         ConfigurationKeyPrefix ??= String.Empty;
         Processor ??= SecretsProcessor.Json;
         LoggerFactory ??= NullLoggerFactory.Instance;
+
+        // snapshot key transformers; mutating the list after the source is built has no effect
+        KeyTransformersSnapshot = KeyTransformers.ToArray();
 
         return new SecretsManagerConfigurationProvider(this);
     }
