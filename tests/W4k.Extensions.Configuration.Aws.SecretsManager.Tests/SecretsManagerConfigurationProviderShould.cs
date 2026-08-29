@@ -1,5 +1,6 @@
 ﻿using Amazon.SecretsManager;
 using Amazon.SecretsManager.Model;
+using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -196,5 +197,22 @@ public class SecretsManagerConfigurationProviderShould
 
         // assert
         await Assert.That(reloadToken.HasChanged).IsFalse();
+    }
+
+    [Test]
+    public async Task ThrowWhenSourceIsBuiltTwice()
+    {
+        // arrange
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
+
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
+        var builder = new ConfigurationBuilder();
+
+        // act
+        source.Build(builder);
+        var ex = await Assert.That(() => source.Build(builder)).ThrowsExactly<InvalidOperationException>();
+
+        // assert
+        await Assert.That(ex!.Message).Contains("already been built");
     }
 }
