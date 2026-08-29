@@ -74,7 +74,7 @@ document the current limitation.
 
 ## D3. Document the custom `ISecretProcessor` contract
 
-**Status:** open · **Effort:** XS
+**Status:** done · **Effort:** XS
 **Superseded by:** [A4](api-surface.md#a4-decouple-isecretprocessor-from-the-configuration-source)
 if that ships
 

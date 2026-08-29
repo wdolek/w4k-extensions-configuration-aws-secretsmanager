@@ -150,6 +150,16 @@ builder.Configuration.AddSecretsManager(
 There's helper class [`SecretProcessor<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/SecretProcessor.cs) which
 can be used to simplify implementation of custom processor (by providing implementation of [`ISecretStringParser<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/ISecretStringParser.cs) and [`IConfigurationTokenizer<T>`](src/W4k.Extensions.Configuration.Aws.SecretsManager/Abstractions/IConfigurationTokenizer.cs)).
 
+> [!IMPORTANT]
+> When implementing `ISecretProcessor` directly, you take over the whole pipeline: your implementation must
+> apply `source.ConfigurationKeyPrefix` and every transformer in `source.KeyTransformers` itself, and return
+> keys in an `OrdinalIgnoreCase` dictionary (see [ADR-0005](docs/adr/0005-configuration-key-transformers.md)).
+> Otherwise the configuration key prefix and key transformations (e.g. `__` to `:`) silently stop working.
+>
+> If you only need to support a different secret *format*, implement `ISecretStringParser<T>` and
+> `IConfigurationTokenizer<T>` and compose them with `SecretProcessor<T>` instead - it handles prefixing
+> and key transformation for you.
+
 ### Configuration key transformation
 
 It is possible to hook into the configuration key transformation, which is used to transform the tokenized configuration key.
