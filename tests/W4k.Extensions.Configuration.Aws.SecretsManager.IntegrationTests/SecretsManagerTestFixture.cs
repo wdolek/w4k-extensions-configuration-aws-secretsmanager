@@ -1,4 +1,5 @@
-﻿using Amazon;
+﻿using System.Text;
+using Amazon;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.SecretsManager;
 
@@ -12,6 +13,7 @@ public static class SecretsManagerTestFixture
 
     public static string KeyValueSecretName { get; private set; } = "";
     public static string ComplexSecretName { get; private set; } = "";
+    public static string BinarySecretName { get; private set; } = "";
 
     [Before(Assembly)]
     public static void OneTimeSetup()
@@ -31,6 +33,9 @@ public static class SecretsManagerTestFixture
         ComplexSecretName = $"{TestSecrets.ComplexSecretName}/{guid}";
         client.CreateSecret(ComplexSecretName, TestSecrets.ComplexJson).GetAwaiter().GetResult();
 
+        BinarySecretName = $"{TestSecrets.BinarySecretName}/{guid}";
+        client.CreateBinarySecret(BinarySecretName, Encoding.UTF8.GetBytes(TestSecrets.BinarySecretJson)).GetAwaiter().GetResult();
+
         SecretsManagerClient = client;
     }
 
@@ -41,6 +46,7 @@ public static class SecretsManagerTestFixture
 
         client.DeleteSecret(KeyValueSecretName).GetAwaiter().GetResult();
         client.DeleteSecret(ComplexSecretName).GetAwaiter().GetResult();
+        client.DeleteSecret(BinarySecretName).GetAwaiter().GetResult();
 
         client.Dispose();
         SecretsManagerClient = null!;

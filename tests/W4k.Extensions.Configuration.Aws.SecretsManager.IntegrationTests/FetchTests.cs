@@ -82,6 +82,27 @@ public class FetchTests
     }
 
     [Test]
+    public async Task FetchBinarySecret()
+    {
+        // arrange
+        var expected = new KeyValuePair<string, string?>[]
+        {
+            new("ClientId", "my_client_id"),
+            new("ClientSecret", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+        };
+
+        // act
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.BinarySecretName)
+            .Build();
+
+        var secrets = config.AsEnumerable().ToList();
+
+        // assert
+        await Assert.That(secrets).IsEquivalentTo(expected);
+    }
+
+    [Test]
     public async Task FetchComplexJsonSecret()
     {
         // arrange

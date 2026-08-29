@@ -42,8 +42,10 @@ public class SecretFetcherShould
         var versionId = "version9000";
 
         var secretContent = """{ "le_secret": "MZ/X" }""";
-        var secretContentBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(secretContent));
-        using var secretBinary = new MemoryStream(Encoding.UTF8.GetBytes(secretContentBase64));
+        var secretBytes = Encoding.UTF8.GetBytes(secretContent);
+
+        // the AWS SDK constructs the stream with `publiclyVisible: true` (see `MemoryStreamUnmarshaller`), mimic it
+        using var secretBinary = new MemoryStream(secretBytes, 0, secretBytes.Length, writable: true, publiclyVisible: true);
 
         var getSecretValueResponse = new GetSecretValueResponse
         {

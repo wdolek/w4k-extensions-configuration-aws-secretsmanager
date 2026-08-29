@@ -7,7 +7,7 @@ a 2.x patch/minor unless noted.
 
 ## C1. Binary secrets are base64-decoded twice
 
-**Status:** open · **Breaking:** no (fixes a broken path) · **Effort:** S
+**Status:** done · **Breaking:** no (fixes a broken path) · **Effort:** S
 
 ### Why
 
