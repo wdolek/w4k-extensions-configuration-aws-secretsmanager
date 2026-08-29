@@ -52,6 +52,8 @@ public class SecretsManagerConfigurationProviderShould
         var ex = await Assert.That(() => provider.Load()).ThrowsExactly<SecretRetrievalException>();
         await Assert.That(ex!.InnerException).IsNotNull();
         await Assert.That(ex!.InnerException).IsTypeOf<ResourceNotFoundException>();
+        await Assert.That(ex!.SecretName).IsEqualTo("le-secret");
+        await Assert.That(ex!.Message).Contains("le-secret");
     }
 
     [Test]

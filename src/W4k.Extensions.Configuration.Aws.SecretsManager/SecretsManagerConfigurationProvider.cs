@@ -164,7 +164,10 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
         if (!ignore)
         {
-            var envelopeException = new SecretRetrievalException("Failed to fetch secret", exception);
+            var envelopeException = new SecretRetrievalException(
+                $"Failed to fetch secret '{Source.SecretName}'",
+                Source.SecretName,
+                exception);
             var exceptionDispatchInfo = ExceptionDispatchInfo.Capture(envelopeException);
 
             exceptionDispatchInfo.Throw();

@@ -32,7 +32,7 @@ internal sealed class SecretFetcher
         }
 
         // Should Not Happen™
-        throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary");
+        throw new SecretRetrievalException($"Secret {request.SecretId} is neither string nor binary", request.SecretId);
     }
 
     private static GetSecretValueRequest CreateRequest(string secretId, SecretVersion? version)
