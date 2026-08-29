@@ -95,6 +95,24 @@ builder.Configuration.AddSecretsManager(
     isOptional: true);
 ```
 
+> [!WARNING]
+> `isOptional: true` ignores *all* exceptions during load and reload, not just "secret not found".
+> A malformed secret payload, a throttled request, or a missing IAM permission is ignored as well, and
+> the application starts (or keeps running) with the secret's configuration absent - which typically
+> surfaces later as an options validation failure, or as a `null` at first use.
+>
+> For finer control, handle the exception yourself. The callback receives the original exception
+> (wrapping into `SecretRetrievalException` happens afterwards), so no `InnerException` unwrapping
+> is needed:
+>
+> ```csharp
+> // ignore only "secret not found" (Amazon.SecretsManager.Model.ResourceNotFoundException), fail on anything else
+> builder.Configuration.AddSecretsManager(
+>     "my-secret-secrets",
+>     source => source.OnLoadException(ctx =>
+>         ctx.Ignore = ctx.Exception is ResourceNotFoundException));
+> ```
+
 It is possible to distinguish between error happening during _load_ and _reload_ (when enabled) operation
 by using `OnLoadException` and `OnReloadException` respectively.
 
