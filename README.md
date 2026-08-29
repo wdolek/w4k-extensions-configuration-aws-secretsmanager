@@ -287,6 +287,11 @@ public static WebApplication UseAppLoggerInSecretsManagerConfigProvider(this Web
 }
 ```
 
+## Design decisions
+
+The reasoning behind the design of this library is documented as Architecture Decision Records
+in [`docs/adr`](docs/adr/README.md).
+
 ## Acknowledgements
 
 This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager`.
