@@ -13,6 +13,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationSource : IConfigurationSource
 {
     private TimeSpan _timeout = TimeSpan.FromSeconds(30);
+    private bool _built;
 
     /// <summary>
     /// Gets or sets secret name (or its complete ARN) to fetch.
@@ -97,7 +98,7 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
     /// <inheritdoc/>
-    /// <exception cref="InvalidOperationException">Thrown when <see cref="SecretName"/> is not set.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="SecretName"/> is not set, or when the source has already been built.</exception>
     [SuppressMessage("ReSharper", "NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract", Justification = "Consumers of library may not have nullable reference types enabled.")]
     public IConfigurationProvider Build(IConfigurationBuilder builder)
     {
@@ -105,6 +106,13 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
         {
             throw new InvalidOperationException("Secret name must be provided.");
         }
+
+        if (_built)
+        {
+            throw new InvalidOperationException("Configuration source has already been built; create a new source per builder.");
+        }
+
+        _built = true;
 
         // ensure default values
         SecretsManager ??= builder.GetSecretsManagerClient() ?? new AmazonSecretsManagerClient();

@@ -178,7 +178,7 @@ None required. Do not attempt to write a race-condition test.
 
 ## C4. `Build()` is not idempotent and shares the watcher instance
 
-**Status:** open · **Breaking:** no · **Effort:** S
+**Status:** done · **Breaking:** no · **Effort:** S
 
 ### Why
 
