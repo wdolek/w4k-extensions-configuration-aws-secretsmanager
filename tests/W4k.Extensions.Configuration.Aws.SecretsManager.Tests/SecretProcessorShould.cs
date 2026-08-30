@@ -1,4 +1,7 @@
-﻿namespace W4k.Extensions.Configuration.Aws.SecretsManager;
+﻿using Amazon.SecretsManager;
+using Microsoft.Extensions.Configuration;
+
+namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretProcessorShould
 {
@@ -33,5 +36,31 @@ public class SecretProcessorShould
         // assert
         await Assert.That(data).Count().IsEqualTo(1);
         await Assert.That(data.Keys.Single()).IsEqualTo("App:Misc_Settings:Key");
+    }
+
+    [Test]
+    public async Task UseKeyTransformersSnapshottedAtBuildTime()
+    {
+        // arrange
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
+
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
+        source.Build(new ConfigurationBuilder());
+
+        // act
+        // mutating key transformers after the source was built must not affect processing
+        source.KeyTransformers.Clear();
+
+        var data = SecretsProcessor.Json.GetConfigurationData(
+            source,
+            """
+            {
+                "App__Key": "Value"
+            }
+            """);
+
+        // assert
+        // transformation in effect at build time is still applied
+        await Assert.That(data.Keys.Single()).IsEqualTo("App:Key");
     }
 }

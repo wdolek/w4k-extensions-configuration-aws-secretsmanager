@@ -49,7 +49,11 @@ public class SecretProcessor<T> : ISecretProcessor
             throw new FormatException($"Secret '{source.SecretName}' cannot be parsed, have you used appropriate secrets processor?");
         }
 
-        var transformers = CollectionsMarshal.AsSpan(source.KeyTransformers);
+        // key transformers are snapshotted when the source is built, so mutating
+        // the source list afterwards does not affect (reload) processing
+        var transformers = source.KeyTransformersSnapshot is { } snapshot
+            ? snapshot.AsSpan()
+            : CollectionsMarshal.AsSpan(source.KeyTransformers);
 
         var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, value) in _tokenizer.Tokenize(secretValue, source.ConfigurationKeyPrefix))

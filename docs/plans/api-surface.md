@@ -258,7 +258,7 @@ built-in JSON path is unaffected from the outside.
 
 ## A5. Snapshot `KeyTransformers` when building the provider
 
-**Status:** open · **Breaking:** no · **Effort:** XS
+**Status:** done · **Breaking:** no · **Effort:** XS
 
 ### Why
 
