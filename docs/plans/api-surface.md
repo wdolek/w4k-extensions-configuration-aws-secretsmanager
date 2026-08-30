@@ -8,7 +8,7 @@ touching anything public.
 
 ## A1. Add `SecretName` to `SecretRetrievalException`
 
-**Status:** open · **Breaking:** no (additive) · **Effort:** XS
+**Status:** done · **Breaking:** no (additive) · **Effort:** XS
 
 ### Why
 

@@ -21,4 +21,32 @@ public class SecretRetrievalException : Exception
         : base(message, inner)
     {
     }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SecretRetrievalException"/> class.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    /// <param name="secretName">Name of the secret which failed to be retrieved.</param>
+    public SecretRetrievalException(string message, string? secretName)
+        : base(message)
+    {
+        SecretName = secretName;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SecretRetrievalException"/> class.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    /// <param name="secretName">Name of the secret which failed to be retrieved.</param>
+    /// <param name="innerException">Inner exception.</param>
+    public SecretRetrievalException(string message, string? secretName, Exception innerException)
+        : base(message, innerException)
+    {
+        SecretName = secretName;
+    }
+
+    /// <summary>
+    /// Gets name of the secret which failed to be retrieved, if known.
+    /// </summary>
+    public string? SecretName { get; }
 }
