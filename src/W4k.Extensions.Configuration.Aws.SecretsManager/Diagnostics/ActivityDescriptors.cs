@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics;
 
@@ -22,5 +23,17 @@ public static class ActivityDescriptors
     /// </summary>
     public static readonly string ReloadActivityName = "W4k.SecretsManager.Reload";
 
-    internal static ActivitySource Source { get; } = new(ActivitySourceName, "2.1");
+    internal static ActivitySource Source { get; } = new(ActivitySourceName, GetVersion());
+
+    // derives the version from the assembly informational version so it tracks the package
+    // version automatically; the SourceLink commit suffix (`2.3.0+abc1234`) is trimmed to
+    // match the package version exactly
+    private static string? GetVersion()
+    {
+        var informationalVersion = typeof(ActivityDescriptors).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        return informationalVersion?.Split('+')[0];
+    }
 }
