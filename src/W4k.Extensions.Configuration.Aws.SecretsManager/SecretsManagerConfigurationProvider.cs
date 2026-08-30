@@ -11,6 +11,9 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// </summary>
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
+    private const string SecretIdTag = "aws.secretsmanager.secret_id";
+    private const string VersionIdTag = "aws.secretsmanager.version_id";
+
     private readonly SecretFetcher _secretFetcher;
 
     private int _reloadInProgress;
@@ -47,6 +50,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
+        activity?.SetTag(SecretIdTag, secretName);
+
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
@@ -54,6 +59,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
+
+            activity?.SetTag(VersionIdTag, secret.VersionId);
 
             SetData(
                 versionId: secret.VersionId,
@@ -100,6 +107,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
+        activity?.SetTag(SecretIdTag, secretName);
+
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
@@ -107,6 +116,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
+
+            activity?.SetTag(VersionIdTag, secret.VersionId);
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))

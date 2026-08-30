@@ -249,6 +249,13 @@ Default timeout value can be found at [`SecretsManagerConfigurationSource`](src/
 Library uses `ActivitySource` and `Activity` to provide information about _load_ and _refresh_ operations.
 To be able to see traces, it is necessary to listen to activity source named "`W4k.Extensions.Configuration.Aws.SecretsManager`".
 
+Activities `W4k.SecretsManager.Load` and `W4k.SecretsManager.Reload` are tagged with:
+
+- `aws.secretsmanager.secret_id` — name of the secret being loaded,
+- `aws.secretsmanager.version_id` — version id of the fetched secret.
+
+Secret values are never emitted.
+
 #### Open Telemetry
 
 Using Open Telemetry package(s), it is possible to add tracing to your application following way:

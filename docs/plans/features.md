@@ -173,7 +173,7 @@ indefinitely.
 
 ## F4. Activity tags
 
-**Status:** open · **Breaking:** no · **Effort:** XS · **Priority:** high
+**Status:** done · **Breaking:** no · **Effort:** XS · **Priority:** high
 
 ### Why
 
