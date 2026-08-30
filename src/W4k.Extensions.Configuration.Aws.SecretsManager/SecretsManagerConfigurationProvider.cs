@@ -49,7 +49,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
         try
         {
-            var cts = new CancellationTokenSource(Source.Timeout);
+            using var cts = new CancellationTokenSource(Source.Timeout);
             var secret = _secretFetcher.GetSecret(secretName, secretVersion, cts.Token)
                 .ConfigureAwait(false)
                 .GetAwaiter()
@@ -102,7 +102,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
         try
         {
-            var cts = new CancellationTokenSource(Source.Timeout);
+            using var cts = new CancellationTokenSource(Source.Timeout);
             var secret = _secretFetcher.GetSecret(secretName, secretVersion, cts.Token)
                 .ConfigureAwait(false)
                 .GetAwaiter()

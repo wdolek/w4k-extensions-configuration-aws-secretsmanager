@@ -103,7 +103,7 @@ Notes:
 
 ## C2. `CancellationTokenSource` is never disposed
 
-**Status:** open · **Breaking:** no · **Effort:** XS
+**Status:** done · **Breaking:** no · **Effort:** XS
 
 ### Why
 
