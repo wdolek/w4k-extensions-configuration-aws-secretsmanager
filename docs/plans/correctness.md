@@ -139,7 +139,7 @@ No behavioural change to assert. Existing tests must stay green.
 
 ## C3. `_currentSecretVersionId` is read and written across threads without a barrier
 
-**Status:** open · **Breaking:** no · **Effort:** XS
+**Status:** done · **Breaking:** no · **Effort:** XS
 
 ### Why
 

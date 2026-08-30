@@ -108,7 +108,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
-            if (string.Equals(secret.VersionId, _currentSecretVersionId, StringComparison.Ordinal))
+            var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
+            if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
             {
                 activity?
                     .AddEvent(new ActivityEvent("skipped"))
@@ -118,7 +119,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 return;
             }
 
-            var previousVersionId = _currentSecretVersionId;
+            var previousVersionId = currentVersionId;
             SetData(
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
@@ -176,7 +177,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
     private void SetData(string versionId, Dictionary<string, string?> data)
     {
-        _currentSecretVersionId = versionId;
+        Volatile.Write(ref _currentSecretVersionId, versionId);
         Data = data;
 
         OnReload();
