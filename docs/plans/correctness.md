@@ -269,7 +269,7 @@ version. Low value; the real fix is removing the literal.
 
 ## C6. Sync-over-async runs on the caller's thread
 
-**Status:** open · **Breaking:** no · **Effort:** S · **Priority:** low
+**Status:** done · **Breaking:** no · **Effort:** S · **Priority:** low
 
 ### Why
 
