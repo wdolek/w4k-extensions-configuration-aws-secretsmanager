@@ -220,7 +220,7 @@ README "Diagnostics" — list the emitted tags.
 
 ## F5. Metrics via `System.Diagnostics.Metrics`
 
-**Status:** open · **Breaking:** no · **Effort:** M
+**Status:** done · **Breaking:** no · **Effort:** M
 
 ### Why
 

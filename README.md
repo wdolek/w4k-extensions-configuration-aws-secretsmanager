@@ -284,6 +284,28 @@ ActivitySource.AddActivityListener(listener);
 
 When listener is registered this way in very early stage of the application, it is possible to see _Load_ activity as well.
 
+#### Metrics
+
+Library also emits metrics via `System.Diagnostics.Metrics` meter named "`W4k.Extensions.Configuration.Aws.SecretsManager`"
+(exposed as `MeterDescriptors.MeterName`):
+
+```csharp
+var otel = builder.Services.AddOpenTelemetry();
+otel.WithMetrics(metrics => metrics
+    .AddMeter(W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics.MeterDescriptors.MeterName)
+    .AddConsoleExporter());
+```
+
+| Instrument | Type | Description |
+| --- | --- | --- |
+| `w4k.secretsmanager.loads` | Counter | Initial loads attempted |
+| `w4k.secretsmanager.reloads` | Counter | Reloads that changed configuration data |
+| `w4k.secretsmanager.reloads.skipped` | Counter | Reloads where the secret version was unchanged |
+| `w4k.secretsmanager.failures` | Counter | Load or reload failures, tagged with `phase` (`load` / `reload`) |
+| `w4k.secretsmanager.fetch.duration` | Histogram | Fetch wall time in seconds |
+
+All instruments are tagged with `aws.secretsmanager.secret_id`. Secret values are never emitted.
+
 ### Logging
 
 It is possible to configure logging for the provider:

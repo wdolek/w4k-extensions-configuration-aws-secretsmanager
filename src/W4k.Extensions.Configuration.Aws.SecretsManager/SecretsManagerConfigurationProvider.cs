@@ -11,8 +11,9 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// </summary>
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
-    private const string SecretIdTag = "aws.secretsmanager.secret_id";
-    private const string VersionIdTag = "aws.secretsmanager.version_id";
+    private const string SecretIdTagName = "aws.secretsmanager.secret_id";
+    private const string VersionIdTagName = "aws.secretsmanager.version_id";
+    private const string PhaseTagName = "phase";
 
     private readonly SecretFetcher _secretFetcher;
 
@@ -50,17 +51,24 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
-        activity?.SetTag(SecretIdTag, secretName);
+        activity?.SetTag(SecretIdTagName, secretName);
+
+        var secretIdTag = new KeyValuePair<string, object?>(SecretIdTagName, secretName);
+        MeterDescriptors.Loads.Add(1, secretIdTag);
 
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
+
+            var fetchStart = Stopwatch.GetTimestamp();
             var secret = Task
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
-            activity?.SetTag(VersionIdTag, secret.VersionId);
+            MeterDescriptors.FetchDuration.Record(Stopwatch.GetElapsedTime(fetchStart).TotalSeconds, secretIdTag);
+
+            activity?.SetTag(VersionIdTagName, secret.VersionId);
 
             SetData(
                 versionId: secret.VersionId,
@@ -77,6 +85,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
+            MeterDescriptors.Failures.Add(1, secretIdTag, new KeyValuePair<string, object?>(PhaseTagName, "load"));
+
 #if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
@@ -107,21 +117,29 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
-        activity?.SetTag(SecretIdTag, secretName);
+        activity?.SetTag(SecretIdTagName, secretName);
+
+        var secretIdTag = new KeyValuePair<string, object?>(SecretIdTagName, secretName);
 
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
+
+            var fetchStart = Stopwatch.GetTimestamp();
             var secret = Task
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
-            activity?.SetTag(VersionIdTag, secret.VersionId);
+            MeterDescriptors.FetchDuration.Record(Stopwatch.GetElapsedTime(fetchStart).TotalSeconds, secretIdTag);
+
+            activity?.SetTag(VersionIdTagName, secret.VersionId);
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
             {
+                MeterDescriptors.ReloadsSkipped.Add(1, secretIdTag);
+
                 activity?
                     .AddEvent(new ActivityEvent("skipped"))
                     .SetStatus(ActivityStatusCode.Ok, "Secret up-to-date");
@@ -135,6 +153,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
 
+            MeterDescriptors.Reloads.Add(1, secretIdTag);
+
             activity?
                 .AddEvent(new ActivityEvent("reloaded"))
                 .SetStatus(ActivityStatusCode.Ok, "Secret reloaded");
@@ -143,6 +163,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
+            MeterDescriptors.Failures.Add(1, secretIdTag, new KeyValuePair<string, object?>(PhaseTagName, "reload"));
+
 #if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
