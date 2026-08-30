@@ -50,8 +50,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
-            var secret = _secretFetcher.GetSecret(secretName, secretVersion, cts.Token)
-                .ConfigureAwait(false)
+            var secret = Task
+                .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
@@ -103,8 +103,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
-            var secret = _secretFetcher.GetSecret(secretName, secretVersion, cts.Token)
-                .ConfigureAwait(false)
+            var secret = Task
+                .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
