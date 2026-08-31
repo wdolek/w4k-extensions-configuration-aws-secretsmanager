@@ -18,17 +18,26 @@ public static class MeterDescriptors
 
     internal static Counter<long> Loads { get; } = Meter.CreateCounter<long>(
         "w4k.secretsmanager.loads",
+        unit: "{operation}",
         description: "Initial loads attempted");
 
     internal static Counter<long> Reloads { get; } = Meter.CreateCounter<long>(
         "w4k.secretsmanager.reloads",
+        unit: "{operation}",
         description: "Reloads that changed configuration data");
 
     internal static Counter<long> ReloadsSkipped { get; } = Meter.CreateCounter<long>(
         "w4k.secretsmanager.reloads.skipped",
+        unit: "{operation}",
         description: "Reloads where the secret version was unchanged");
 
-    internal static Counter<long> Failures { get; } = Meter.CreateCounter<long>(
-        "w4k.secretsmanager.failures",
-        description: "Load or reload failures, tagged by phase");
+    internal static Counter<long> LoadFailures { get; } = Meter.CreateCounter<long>(
+        "w4k.secretsmanager.loads.failed",
+        unit: "{operation}",
+        description: "Initial loads that failed");
+
+    internal static Counter<long> ReloadFailures { get; } = Meter.CreateCounter<long>(
+        "w4k.secretsmanager.reloads.failed",
+        unit: "{operation}",
+        description: "Reloads that failed");
 }

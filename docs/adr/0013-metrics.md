@@ -35,12 +35,25 @@ identifier — name or ARN — following the OTel attribute naming of the
 | `w4k.secretsmanager.loads` | Counter | initial loads attempted |
 | `w4k.secretsmanager.reloads` | Counter | reloads that changed configuration data |
 | `w4k.secretsmanager.reloads.skipped` | Counter | reloads where the secret version was unchanged |
-| `w4k.secretsmanager.failures` | Counter | load or reload failures, additionally tagged with `phase` (`load` / `reload`) |
+| `w4k.secretsmanager.loads.failed` | Counter | initial loads that failed |
+| `w4k.secretsmanager.reloads.failed` | Counter | reloads that failed |
+
+All instruments have unit `{operation}` and follow the OTel metric naming
+conventions: the counted entity (loads, reloads) is pluralized and the
+outcome is a past-participle suffix (`loads.failed`, `reloads.skipped`),
+matching the `system.files.opened` pattern.
+
+Failures are split by operation — `loads.failed` and `reloads.failed` — so
+the instrument name carries the distinction and no extra tag is needed at the
+call site. `reloads.failed` is the headline alert; `loads.failed` is
+near-redundant (a failed load throws and usually prevents startup) but covers
+the case where the consumer swallows load exceptions via the load-exception
+callback.
 
 No duration histogram is emitted. Fetches are rare (one load plus
 reload-triggered fetches), so a latency distribution carries almost no
 signal; the network round trip is inside AWS and not actionable by the
-consumer; and fetch timeouts already surface on the failures counter.
+consumer; and fetch timeouts already surface on the failure counters.
 Individual fetch durations remain visible on the `Load`/`Reload` activities
 when tracing is enabled.
 

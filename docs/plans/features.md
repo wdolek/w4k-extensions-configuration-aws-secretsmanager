@@ -248,7 +248,8 @@ Instruments, all tagged with `aws.secretsmanager.secret.id`:
 | `w4k.secretsmanager.loads` | Counter | initial loads attempted |
 | `w4k.secretsmanager.reloads` | Counter | reloads that changed data |
 | `w4k.secretsmanager.reloads.skipped` | Counter | polls where version id was unchanged |
-| `w4k.secretsmanager.failures` | Counter | load or reload failures, tagged by phase |
+| `w4k.secretsmanager.loads.failed` | Counter | initial loads that failed |
+| `w4k.secretsmanager.reloads.failed` | Counter | reloads that failed |
 
 Constraints:
 

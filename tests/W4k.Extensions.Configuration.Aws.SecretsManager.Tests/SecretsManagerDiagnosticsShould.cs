@@ -194,7 +194,7 @@ public class SecretsManagerDiagnosticsShould
     }
 
     [Test]
-    public async Task CountLoadFailureWithLoadPhase()
+    public async Task CountLoadFailure()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -212,11 +212,11 @@ public class SecretsManagerDiagnosticsShould
         await Assert.That(() => provider.Load()).ThrowsExactly<SecretRetrievalException>();
 
         // assert
-        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.failures", secretName, phase: "load")).IsEqualTo(1);
+        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.loads.failed", secretName)).IsEqualTo(1);
     }
 
     [Test]
-    public async Task CountReloadFailureWithReloadPhase()
+    public async Task CountReloadFailure()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -238,7 +238,7 @@ public class SecretsManagerDiagnosticsShould
         await Assert.That(() => provider.Reload()).ThrowsExactly<SecretRetrievalException>();
 
         // assert
-        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.failures", secretName, phase: "reload")).IsEqualTo(1);
+        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.reloads.failed", secretName)).IsEqualTo(1);
     }
 
     // activities and meters are only observed when a listener is registered, and
@@ -295,11 +295,10 @@ public class SecretsManagerDiagnosticsShould
             _listener.Start();
         }
 
-        public int CountMeasurements(string instrumentName, string secretName, string? phase = null) =>
+        public int CountMeasurements(string instrumentName, string secretName) =>
             _counters.Count(m =>
                 m.Instrument == instrumentName &&
-                HasTag(m.Tags, "aws.secretsmanager.secret.id", secretName) &&
-                (phase is null || HasTag(m.Tags, "phase", phase)));
+                HasTag(m.Tags, "aws.secretsmanager.secret.id", secretName));
 
         public void Dispose() => _listener.Dispose();
 

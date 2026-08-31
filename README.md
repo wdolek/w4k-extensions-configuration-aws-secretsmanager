@@ -302,9 +302,10 @@ otel.WithMetrics(metrics => metrics
 | `w4k.secretsmanager.loads` | Counter | Initial loads attempted |
 | `w4k.secretsmanager.reloads` | Counter | Reloads that changed configuration data |
 | `w4k.secretsmanager.reloads.skipped` | Counter | Reloads where the secret version was unchanged |
-| `w4k.secretsmanager.failures` | Counter | Load or reload failures, tagged with `phase` (`load` / `reload`) |
+| `w4k.secretsmanager.loads.failed` | Counter | Initial loads that failed |
+| `w4k.secretsmanager.reloads.failed` | Counter | Reloads that failed |
 
-All instruments are tagged with `aws.secretsmanager.secret.id`. Secret values are never emitted.
+All instruments are tagged with `aws.secretsmanager.secret.id` and have unit `{operation}` (count of operations, following OTel metric naming and unit conventions). Secret values are never emitted.
 
 ### Logging
 

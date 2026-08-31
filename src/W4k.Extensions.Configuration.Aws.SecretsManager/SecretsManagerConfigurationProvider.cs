@@ -14,7 +14,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     private const string SecretIdTagName = "aws.secretsmanager.secret.id";
     private const string SecretArnTagName = "aws.secretsmanager.secret.arn";
     private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
-    private const string PhaseTagName = "phase";
 
     private readonly SecretFetcher _secretFetcher;
 
@@ -83,7 +82,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
-            MeterDescriptors.Failures.Add(1, secretIdTag, new KeyValuePair<string, object?>(PhaseTagName, "load"));
+            MeterDescriptors.LoadFailures.Add(1, secretIdTag);
 
 #if NET9_0_OR_GREATER
             activity?
@@ -158,7 +157,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
-            MeterDescriptors.Failures.Add(1, secretIdTag, new KeyValuePair<string, object?>(PhaseTagName, "reload"));
+            MeterDescriptors.ReloadFailures.Add(1, secretIdTag);
 
 #if NET9_0_OR_GREATER
             activity?
