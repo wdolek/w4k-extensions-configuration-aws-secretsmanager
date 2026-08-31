@@ -11,12 +11,7 @@ public static class TestSecrets
         """;
 
     public const string BinarySecretName = "w4k/awssm/binary-secret";
-    public const string BinarySecretJson = """
-        {
-            "ClientId": "my_client_id",
-            "ClientSecret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-        }
-        """;
+    public const string BinarySecretValue = "The cake is a lie.";
 
     public const string ComplexSecretName = "w4k/awssm/complex-secret";
     public const string ComplexJson = """
