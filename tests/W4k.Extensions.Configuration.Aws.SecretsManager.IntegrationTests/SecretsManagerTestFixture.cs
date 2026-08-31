@@ -34,7 +34,7 @@ public static class SecretsManagerTestFixture
         client.CreateSecret(ComplexSecretName, TestSecrets.ComplexJson).GetAwaiter().GetResult();
 
         BinarySecretName = $"{TestSecrets.BinarySecretName}/{guid}";
-        client.CreateBinarySecret(BinarySecretName, Encoding.UTF8.GetBytes(TestSecrets.BinarySecretJson)).GetAwaiter().GetResult();
+        client.CreateBinarySecret(BinarySecretName, Encoding.UTF8.GetBytes(TestSecrets.BinarySecretValue)).GetAwaiter().GetResult();
 
         SecretsManagerClient = client;
     }

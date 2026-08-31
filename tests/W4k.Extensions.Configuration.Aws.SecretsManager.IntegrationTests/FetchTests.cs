@@ -87,13 +87,16 @@ public class FetchTests
         // arrange
         var expected = new KeyValuePair<string, string?>[]
         {
-            new("ClientId", "my_client_id"),
-            new("ClientSecret", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+            new("SecretKey", TestSecrets.BinarySecretValue),
         };
 
         // act
         var config = new ConfigurationBuilder()
-            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.BinarySecretName)
+            .AddSecretsManager(
+                SecretsManagerTestFixture.BinarySecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithProcessor(new PlainTextSecretProcessor()))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -132,6 +135,12 @@ public class FetchTests
 
         // assert
         await Assert.That(secrets).IsEquivalentTo(expected);
+    }
+
+    private sealed class PlainTextSecretProcessor : ISecretProcessor
+    {
+        public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString) =>
+            new() { ["SecretKey"] = secretString };
     }
 
     private class TestKeyTransformer : IConfigurationKeyTransformer
