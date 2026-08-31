@@ -1,4 +1,5 @@
-﻿using Amazon.SecretsManager;
+﻿using System.Text;
+using Amazon.SecretsManager;
 using Amazon.SecretsManager.Model;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
@@ -24,9 +25,9 @@ internal sealed class SecretFetcher
 
         if (response.SecretBinary is not null)
         {
-            using var reader = new StreamReader(response.SecretBinary, leaveOpen: false);
-            var encodedString = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-            var secretString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
+            // the AWS SDK has already base64-decoded the payload into the stream, read it as-is
+            using var binary = response.SecretBinary;
+            var secretString = Encoding.UTF8.GetString(binary.GetBuffer(), 0, (int)binary.Length);
 
             return new(response.VersionId, secretString);
         }

@@ -14,6 +14,15 @@ internal static class AmazonSecretsManagerExtensions
                 Description = "W4k.Extensions.Configuration.Aws.SecretsManager integration tests secret",
             });
 
+    public static Task CreateBinarySecret(this IAmazonSecretsManager client, string secretName, byte[] secretValue) =>
+        client.CreateSecretAsync(
+            new CreateSecretRequest
+            {
+                Name = secretName,
+                SecretBinary = new MemoryStream(secretValue),
+                Description = "W4k.Extensions.Configuration.Aws.SecretsManager integration tests secret",
+            });
+
     public static Task UpdateSecret(this IAmazonSecretsManager client, string secretName, string secretValue) =>
         client.UpdateSecretAsync(new UpdateSecretRequest
         {
