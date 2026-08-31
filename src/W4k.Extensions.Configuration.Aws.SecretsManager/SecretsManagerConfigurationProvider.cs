@@ -59,14 +59,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
-
             var secret = Task
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
             SetFetchedSecretTags(activity, secret);
-
             SetData(
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
@@ -121,7 +119,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
-
             var secret = Task
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
@@ -196,6 +193,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 $"Failed to fetch secret '{Source.SecretName}'",
                 Source.SecretName,
                 exception);
+
             var exceptionDispatchInfo = ExceptionDispatchInfo.Capture(envelopeException);
 
             exceptionDispatchInfo.Throw();
