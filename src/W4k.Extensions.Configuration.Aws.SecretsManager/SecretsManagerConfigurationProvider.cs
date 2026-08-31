@@ -11,6 +11,10 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// </summary>
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
+    private const string SecretIdTagName = "aws.secretsmanager.secret.id";
+    private const string SecretArnTagName = "aws.secretsmanager.secret.arn";
+    private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
+
     private readonly SecretFetcher _secretFetcher;
 
     private int _reloadInProgress;
@@ -47,6 +51,11 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
+        activity?.SetTag(SecretIdTagName, secretName);
+
+        var secretIdTag = new KeyValuePair<string, object?>(SecretIdTagName, secretName);
+        MeterDescriptors.Loads.Add(1, secretIdTag);
+
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
@@ -55,6 +64,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
+            SetFetchedSecretTags(activity, secret);
             SetData(
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
@@ -70,6 +80,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
+            MeterDescriptors.LoadFailures.Add(1, secretIdTag);
+
 #if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
@@ -100,6 +112,10 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
+        activity?.SetTag(SecretIdTagName, secretName);
+
+        var secretIdTag = new KeyValuePair<string, object?>(SecretIdTagName, secretName);
+
         try
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
@@ -108,9 +124,13 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
+            SetFetchedSecretTags(activity, secret);
+
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
             {
+                MeterDescriptors.ReloadsSkipped.Add(1, secretIdTag);
+
                 activity?
                     .AddEvent(new ActivityEvent("skipped"))
                     .SetStatus(ActivityStatusCode.Ok, "Secret up-to-date");
@@ -124,6 +144,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
 
+            MeterDescriptors.Reloads.Add(1, secretIdTag);
+
             activity?
                 .AddEvent(new ActivityEvent("reloaded"))
                 .SetStatus(ActivityStatusCode.Ok, "Secret reloaded");
@@ -132,6 +154,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         catch (Exception ex)
         {
+            MeterDescriptors.ReloadFailures.Add(1, secretIdTag);
+
 #if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
@@ -169,6 +193,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 $"Failed to fetch secret '{Source.SecretName}'",
                 Source.SecretName,
                 exception);
+
             var exceptionDispatchInfo = ExceptionDispatchInfo.Capture(envelopeException);
 
             exceptionDispatchInfo.Throw();
@@ -181,6 +206,16 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         Data = data;
 
         OnReload();
+    }
+
+    private static void SetFetchedSecretTags(Activity? activity, SecretValue secret)
+    {
+        activity?.SetTag(VersionIdTagName, secret.VersionId);
+
+        if (secret.Arn is not null)
+        {
+            activity?.SetTag(SecretArnTagName, secret.Arn);
+        }
     }
 }
 

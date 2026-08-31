@@ -224,7 +224,7 @@ with a message mentioning reuse.
 
 ## C5. `ActivitySource` version string has drifted from the package version
 
-**Status:** open · **Breaking:** no · **Effort:** XS
+**Status:** done · **Breaking:** no · **Effort:** XS
 
 ### Why
 

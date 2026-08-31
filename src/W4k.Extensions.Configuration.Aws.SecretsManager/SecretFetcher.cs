@@ -20,7 +20,7 @@ internal sealed class SecretFetcher
         var response = await _secretsManager.GetSecretValueAsync(request, cancellationToken).ConfigureAwait(false);
         if (response.SecretString is not null)
         {
-            return new(response.VersionId, response.SecretString);
+            return new(response.ARN, response.VersionId, response.SecretString);
         }
 
         if (response.SecretBinary is not null)
@@ -29,7 +29,7 @@ internal sealed class SecretFetcher
             using var binary = response.SecretBinary;
             var secretString = Encoding.UTF8.GetString(binary.GetBuffer(), 0, (int)binary.Length);
 
-            return new(response.VersionId, secretString);
+            return new(response.ARN, response.VersionId, secretString);
         }
 
         // Should Not Happen™
@@ -59,15 +59,16 @@ internal sealed class SecretFetcher
         return request;
     }
 }
-
 internal sealed class SecretValue
 {
-    public SecretValue(string versionId, string value)
+    public SecretValue(string? arn, string versionId, string value)
     {
-        Value = value;
+        Arn = arn;
         VersionId = versionId;
+        Value = value;
     }
 
-    public string Value { get; }
+    public string? Arn { get; }
     public string VersionId { get; }
+    public string Value { get; }
 }

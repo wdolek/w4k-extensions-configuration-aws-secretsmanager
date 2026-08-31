@@ -249,6 +249,14 @@ Default timeout value can be found at [`SecretsManagerConfigurationSource`](src/
 Library uses `ActivitySource` and `Activity` to provide information about _load_ and _refresh_ operations.
 To be able to see traces, it is necessary to listen to activity source named "`W4k.Extensions.Configuration.Aws.SecretsManager`".
 
+Activities `W4k.SecretsManager.Load` and `W4k.SecretsManager.Reload` are tagged with:
+
+- `aws.secretsmanager.secret.id` — identifier of the secret being loaded, as configured (name or ARN),
+- `aws.secretsmanager.secret.arn` — full ARN of the secret, as returned by AWS Secrets Manager (set after successful fetch),
+- `aws.secretsmanager.secret.version_id` — version id of the fetched secret.
+
+Secret values are never emitted.
+
 #### Open Telemetry
 
 Using Open Telemetry package(s), it is possible to add tracing to your application following way:
@@ -276,6 +284,28 @@ ActivitySource.AddActivityListener(listener);
 ```
 
 When listener is registered this way in very early stage of the application, it is possible to see _Load_ activity as well.
+
+#### Metrics
+
+Library also emits metrics via `System.Diagnostics.Metrics` meter named "`W4k.Extensions.Configuration.Aws.SecretsManager`"
+(exposed as `MeterDescriptors.MeterName`):
+
+```csharp
+var otel = builder.Services.AddOpenTelemetry();
+otel.WithMetrics(metrics => metrics
+    .AddMeter(W4k.Extensions.Configuration.Aws.SecretsManager.Diagnostics.MeterDescriptors.MeterName)
+    .AddConsoleExporter());
+```
+
+| Instrument | Type | Description |
+| --- | --- | --- |
+| `w4k.secretsmanager.loads` | Counter | Initial loads attempted |
+| `w4k.secretsmanager.reloads` | Counter | Reloads that changed configuration data |
+| `w4k.secretsmanager.reloads.skipped` | Counter | Reloads where the secret version was unchanged |
+| `w4k.secretsmanager.loads.failed` | Counter | Initial loads that failed |
+| `w4k.secretsmanager.reloads.failed` | Counter | Reloads that failed |
+
+All instruments are tagged with `aws.secretsmanager.secret.id` and have unit `{operation}` (count of operations, following OTel metric naming and unit conventions). Secret values are never emitted.
 
 ### Logging
 

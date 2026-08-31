@@ -105,7 +105,7 @@ Delete this task if A4 lands, since the responsibility moves to the provider.
 
 ## D4. Note the `ActivitySource` version in the diagnostics section
 
-**Status:** open · **Effort:** XS
+**Status:** done (skipped) · **Effort:** XS
 **Depends on:** [C5](correctness.md#c5-activitysource-version-string-has-drifted-from-the-package-version)
 
 ### Why
@@ -116,5 +116,5 @@ OTel processors surface as `otel.library.version`.
 
 ### Change
 
-One sentence after C5 makes the version track the package version
-automatically.
+Skipped: with C5 fixed, the version tracks the package version automatically,
+so there is no discrepancy left to document.
