@@ -251,8 +251,9 @@ To be able to see traces, it is necessary to listen to activity source named "`W
 
 Activities `W4k.SecretsManager.Load` and `W4k.SecretsManager.Reload` are tagged with:
 
-- `aws.secretsmanager.secret_id` — name of the secret being loaded,
-- `aws.secretsmanager.version_id` — version id of the fetched secret.
+- `aws.secretsmanager.secret.id` — identifier of the secret being loaded, as configured (name or ARN),
+- `aws.secretsmanager.secret.arn` — full ARN of the secret, as returned by AWS Secrets Manager (set after successful fetch),
+- `aws.secretsmanager.secret.version_id` — version id of the fetched secret.
 
 Secret values are never emitted.
 
@@ -302,9 +303,8 @@ otel.WithMetrics(metrics => metrics
 | `w4k.secretsmanager.reloads` | Counter | Reloads that changed configuration data |
 | `w4k.secretsmanager.reloads.skipped` | Counter | Reloads where the secret version was unchanged |
 | `w4k.secretsmanager.failures` | Counter | Load or reload failures, tagged with `phase` (`load` / `reload`) |
-| `w4k.secretsmanager.fetch.duration` | Histogram | Fetch wall time in seconds |
 
-All instruments are tagged with `aws.secretsmanager.secret_id`. Secret values are never emitted.
+All instruments are tagged with `aws.secretsmanager.secret.id`. Secret values are never emitted.
 
 ### Logging
 

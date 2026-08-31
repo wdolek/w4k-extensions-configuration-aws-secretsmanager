@@ -190,13 +190,14 @@ diagnostics improvement available.
 
 ```csharp
 using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
-activity?.SetTag("aws.secretsmanager.secret_id", secretName);
+activity?.SetTag("aws.secretsmanager.secret.id", secretName);
 ```
 
 and after a successful fetch:
 
 ```csharp
-activity?.SetTag("aws.secretsmanager.version_id", secret.VersionId);
+activity?.SetTag("aws.secretsmanager.secret.version_id", secret.VersionId);
+activity?.SetTag("aws.secretsmanager.secret.arn", secret.Arn); // full ARN from the response, when available
 ```
 
 Per [ADR-0010](../adr/0010-diagnostics-and-late-bound-logging.md), secret
@@ -240,7 +241,7 @@ public static class MeterDescriptors
 }
 ```
 
-Instruments, all tagged with `aws.secretsmanager.secret_id`:
+Instruments, all tagged with `aws.secretsmanager.secret.id`:
 
 | Instrument | Type | Meaning |
 | --- | --- | --- |
@@ -248,7 +249,6 @@ Instruments, all tagged with `aws.secretsmanager.secret_id`:
 | `w4k.secretsmanager.reloads` | Counter | reloads that changed data |
 | `w4k.secretsmanager.reloads.skipped` | Counter | polls where version id was unchanged |
 | `w4k.secretsmanager.failures` | Counter | load or reload failures, tagged by phase |
-| `w4k.secretsmanager.fetch.duration` | Histogram | fetch wall time, seconds |
 
 Constraints:
 

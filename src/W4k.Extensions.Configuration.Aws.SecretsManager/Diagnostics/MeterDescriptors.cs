@@ -31,9 +31,4 @@ public static class MeterDescriptors
     internal static Counter<long> Failures { get; } = Meter.CreateCounter<long>(
         "w4k.secretsmanager.failures",
         description: "Load or reload failures, tagged by phase");
-
-    internal static Histogram<double> FetchDuration { get; } = Meter.CreateHistogram<double>(
-        "w4k.secretsmanager.fetch.duration",
-        unit: "s",
-        description: "Fetch wall time in seconds");
 }

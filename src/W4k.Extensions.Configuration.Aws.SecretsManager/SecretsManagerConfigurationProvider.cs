@@ -11,8 +11,9 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// </summary>
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
-    private const string SecretIdTagName = "aws.secretsmanager.secret_id";
-    private const string VersionIdTagName = "aws.secretsmanager.version_id";
+    private const string SecretIdTagName = "aws.secretsmanager.secret.id";
+    private const string SecretArnTagName = "aws.secretsmanager.secret.arn";
+    private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
     private const string PhaseTagName = "phase";
 
     private readonly SecretFetcher _secretFetcher;
@@ -60,15 +61,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
 
-            var fetchStart = Stopwatch.GetTimestamp();
             var secret = Task
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
-            MeterDescriptors.FetchDuration.Record(Stopwatch.GetElapsedTime(fetchStart).TotalSeconds, secretIdTag);
-
-            activity?.SetTag(VersionIdTagName, secret.VersionId);
+            SetFetchedSecretTags(activity, secret);
 
             SetData(
                 versionId: secret.VersionId,
@@ -125,15 +123,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         {
             using var cts = new CancellationTokenSource(Source.Timeout);
 
-            var fetchStart = Stopwatch.GetTimestamp();
             var secret = Task
                 .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
                 .GetAwaiter()
                 .GetResult();
 
-            MeterDescriptors.FetchDuration.Record(Stopwatch.GetElapsedTime(fetchStart).TotalSeconds, secretIdTag);
-
-            activity?.SetTag(VersionIdTagName, secret.VersionId);
+            SetFetchedSecretTags(activity, secret);
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
@@ -214,6 +209,16 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         Data = data;
 
         OnReload();
+    }
+
+    private static void SetFetchedSecretTags(Activity? activity, SecretValue secret)
+    {
+        activity?.SetTag(VersionIdTagName, secret.VersionId);
+
+        if (secret.Arn is not null)
+        {
+            activity?.SetTag(SecretArnTagName, secret.Arn);
+        }
     }
 }
 

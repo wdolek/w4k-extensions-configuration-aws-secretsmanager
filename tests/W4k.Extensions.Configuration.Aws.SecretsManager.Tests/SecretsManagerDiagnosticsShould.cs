@@ -9,8 +9,11 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretsManagerDiagnosticsShould
 {
+    private const string SecretArn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:le-secret-AbCdEfG";
+
     private static readonly GetSecretValueResponse InitialSecretValueResponse = new()
     {
+        ARN = SecretArn,
         VersionId = "d6d1b757d46d449d1835a10869dfb9d1",
         SecretString = """
             {
@@ -20,7 +23,7 @@ public class SecretsManagerDiagnosticsShould
     };
 
     [Test]
-    public async Task TagLoadActivityWithSecretIdAndVersionId()
+    public async Task TagLoadActivityWithSecretIdVersionIdAndArn()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -40,12 +43,13 @@ public class SecretsManagerDiagnosticsShould
         // assert
         var activity = FindActivity(activities, ActivityDescriptors.LoadActivityName, secretName);
         await Assert.That(activity).IsNotNull();
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret_id")).IsEqualTo(secretName);
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d1");
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.id")).IsEqualTo(secretName);
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d1");
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.arn")).IsEqualTo(SecretArn);
     }
 
     [Test]
-    public async Task TagReloadActivityWithSecretIdAndVersionId()
+    public async Task TagReloadActivityWithSecretIdVersionIdAndArn()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -53,6 +57,7 @@ public class SecretsManagerDiagnosticsShould
 
         var newSecretValueResponse = new GetSecretValueResponse
         {
+            ARN = SecretArn,
             VersionId = "d6d1b757d46d449d1835a10869dfb9d2",
             SecretString = """
                 {
@@ -76,12 +81,13 @@ public class SecretsManagerDiagnosticsShould
         // assert
         var activity = FindActivity(activities, ActivityDescriptors.ReloadActivityName, secretName);
         await Assert.That(activity).IsNotNull();
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret_id")).IsEqualTo(secretName);
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d2");
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.id")).IsEqualTo(secretName);
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d2");
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.arn")).IsEqualTo(SecretArn);
     }
 
     [Test]
-    public async Task TagSkippedReloadActivityWithSecretIdAndVersionId()
+    public async Task TagSkippedReloadActivityWithSecretIdVersionIdAndArn()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -102,8 +108,9 @@ public class SecretsManagerDiagnosticsShould
         // assert
         var activity = FindActivity(activities, ActivityDescriptors.ReloadActivityName, secretName);
         await Assert.That(activity).IsNotNull();
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret_id")).IsEqualTo(secretName);
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d1");
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.id")).IsEqualTo(secretName);
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d1");
+        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.arn")).IsEqualTo(SecretArn);
     }
 
     [Test]
@@ -234,30 +241,6 @@ public class SecretsManagerDiagnosticsShould
         await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.failures", secretName, phase: "reload")).IsEqualTo(1);
     }
 
-    [Test]
-    public async Task RecordFetchDuration()
-    {
-        // arrange
-        var secretName = NewUniqueSecretName();
-        using var metrics = new MetricsCollector();
-
-        var secretsManagerStub = IAmazonSecretsManager.Mock();
-        secretsManagerStub
-            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
-            .Returns(InitialSecretValueResponse);
-
-        var source = new SecretsManagerConfigurationSource { SecretName = secretName, SecretsManager = secretsManagerStub.Object };
-        var provider = new SecretsManagerConfigurationProvider(source);
-
-        // act
-        provider.Load();
-
-        // assert
-        var values = metrics.GetRecordedValues("w4k.secretsmanager.fetch.duration", secretName);
-        await Assert.That(values.Count).IsEqualTo(1);
-        await Assert.That(values[0]).IsGreaterThanOrEqualTo(0.0);
-    }
-
     // activities and meters are only observed when a listener is registered, and
     // listeners are process-global; a unique secret name per test keeps parallel
     // test runs isolated
@@ -283,7 +266,7 @@ public class SecretsManagerDiagnosticsShould
     private static Activity? FindActivity(ConcurrentBag<Activity> activities, string operationName, string secretName) =>
         activities.SingleOrDefault(a =>
             a.OperationName == operationName &&
-            GetTag(a, "aws.secretsmanager.secret_id") == secretName);
+            GetTag(a, "aws.secretsmanager.secret.id") == secretName);
 
     private static string? GetTag(Activity activity, string key) =>
         activity.Tags.FirstOrDefault(t => t.Key == key).Value;
@@ -292,7 +275,6 @@ public class SecretsManagerDiagnosticsShould
     {
         private readonly MeterListener _listener;
         private readonly ConcurrentQueue<(string Instrument, long Value, KeyValuePair<string, object?>[] Tags)> _counters = new();
-        private readonly ConcurrentQueue<(string Instrument, double Value, KeyValuePair<string, object?>[] Tags)> _histograms = new();
 
         public MetricsCollector()
         {
@@ -310,23 +292,14 @@ public class SecretsManagerDiagnosticsShould
             _listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
                 _counters.Enqueue((instrument.Name, value, tags.ToArray())));
 
-            _listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
-                _histograms.Enqueue((instrument.Name, value, tags.ToArray())));
-
             _listener.Start();
         }
 
         public int CountMeasurements(string instrumentName, string secretName, string? phase = null) =>
             _counters.Count(m =>
                 m.Instrument == instrumentName &&
-                HasTag(m.Tags, "aws.secretsmanager.secret_id", secretName) &&
+                HasTag(m.Tags, "aws.secretsmanager.secret.id", secretName) &&
                 (phase is null || HasTag(m.Tags, "phase", phase)));
-
-        public IReadOnlyList<double> GetRecordedValues(string instrumentName, string secretName) =>
-            _histograms
-                .Where(m => m.Instrument == instrumentName && HasTag(m.Tags, "aws.secretsmanager.secret_id", secretName))
-                .Select(m => m.Value)
-                .ToList();
 
         public void Dispose() => _listener.Dispose();
 
