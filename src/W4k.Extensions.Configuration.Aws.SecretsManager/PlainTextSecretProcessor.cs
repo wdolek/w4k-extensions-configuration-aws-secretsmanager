@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
@@ -62,14 +61,8 @@ public sealed class PlainTextSecretProcessor : ISecretProcessor
                 + "Set configuration key prefix or use 'PlainTextSecretProcessor(string configurationKey)' constructor.");
         }
 
-        // key transformers are snapshotted when the source is built, so mutating
-        // the source list afterwards does not affect (reload) processing
-        var transformers = source.KeyTransformersSnapshot is { } snapshot
-            ? snapshot.AsSpan()
-            : CollectionsMarshal.AsSpan(source.KeyTransformers);
-
         var transformedKey = key;
-        foreach (var transformer in transformers)
+        foreach (var transformer in source.GetKeyTransformers())
         {
             transformedKey = transformer.Transform(transformedKey);
         }
