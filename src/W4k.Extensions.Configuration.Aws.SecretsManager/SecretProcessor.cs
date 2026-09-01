@@ -51,8 +51,7 @@ public class SecretProcessor<T> : ISecretProcessor
     }
 
     /// <inheritdoc/>
-    public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source,
-        string secretString)
+    public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString)
     {
         if (!_parser.TryParse(secretString, out var secretValue))
         {
@@ -131,8 +130,7 @@ public sealed class PlainTextSecretProcessor : ISecretProcessor
         if (string.IsNullOrEmpty(key))
         {
             throw new InvalidOperationException(
-                "Configuration key is not set, a value cannot live at the configuration root. "
-                + "Set configuration key prefix or use 'PlainTextSecretProcessor(string configurationKey)' constructor.");
+                "Configuration key is not set, a value cannot live at the configuration root. Set configuration key prefix or use 'PlainTextSecretProcessor(string configurationKey)' constructor.");
         }
 
         var transformedKey = key;

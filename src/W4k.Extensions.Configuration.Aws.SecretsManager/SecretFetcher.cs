@@ -63,6 +63,7 @@ internal sealed class SecretFetcher
         return request;
     }
 }
+
 internal sealed class SecretValue
 {
     public SecretValue(string? arn, string versionId, string value)
