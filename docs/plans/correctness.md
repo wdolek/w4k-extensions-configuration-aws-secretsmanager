@@ -314,3 +314,63 @@ Existing provider tests must stay green, including the timeout test. Verify the
 exception thrown on timeout is still unwrapped correctly by `HandleException`
 (`Task.Run` will surface `OperationCanceledException`, not
 `AggregateException`, via `GetAwaiter().GetResult()`).
+
+---
+
+## C7. Non-UTF-8 binary secrets are silently corrupted
+
+**Status:** open · **Breaking:** behavioural (silent corruption → loud failure) · **Effort:** XS
+
+### Why
+
+Post-C1, `SecretFetcher` holds the correct raw bytes but decodes them with
+`Encoding.UTF8`, which **replaces** invalid byte sequences with U+FFFD instead
+of throwing. A binary secret holding a certificate, signing key or p12
+therefore round-trips into silently mangled configuration values — the worst
+failure mode, because nothing ever complains.
+
+`SecretsProcessor.Json` happens to throw later for such payloads (mangled
+bytes are not JSON), but with F1 (plain-text processor) the corrupted value
+would flow straight into configuration. The plain-text processor makes this
+defect user-visible, so fix it alongside or before F1.
+
+### Where
+
+`src/.../SecretFetcher.cs:30`
+
+### Change
+
+Decode strictly, so a non-UTF-8 payload fails loudly at fetch time instead of
+corrupting silently:
+
+```csharp
+private static readonly UTF8Encoding Utf8Strict =
+    new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+// in GetSecret, binary branch:
+var secretString = Utf8Strict.GetString(binary.GetBuffer(), 0, (int)binary.Length);
+```
+
+- The thrown `DecoderFallbackException` is enveloped into
+  `SecretRetrievalException` by the existing provider error handling, so no
+  new plumbing is needed.
+- Alternative rejected: base64-encoding the payload in the fetcher so a
+  processor could decode it — that changes what *every* processor sees and
+  breaks the JSON-on-binary-secret path that C1's tests pin down.
+- The real fix — handing processors raw bytes — is a v3 contract change that
+  should ride along with **A4**; see F8 for how `Base64SecretProcessor` would
+  consume it. C7 is the stopgap that makes the 2.x failure mode loud.
+
+### Risk
+
+Behavioural, not API-breaking: secrets that previously "worked" (produced
+U+FFFD-mangled values) now throw at load. Only affects secrets written via
+`SecretBinary` with non-UTF-8 content — a population that was broken anyway.
+Call it out in release notes.
+
+### Tests
+
+- `tests/.../SecretFetcherShould.cs` — binary payload with invalid UTF-8
+  (e.g. `[0xC3, 0x28]`) throws; valid UTF-8 payload still decodes.
+- Integration test optional (a `SecretBinary` secret with non-UTF-8 bytes),
+  follows the C1 pattern.
