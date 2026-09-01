@@ -36,6 +36,7 @@ Three constraints shape almost every decision in this library:
 | [0012](0012-snapshot-key-transformers-at-build-time.md) | Snapshot key transformers at build time | Accepted |
 | [0013](0013-metrics.md) | Metrics | Accepted |
 | [0014](0014-binary-secrets-must-be-valid-utf8.md) | Binary secrets must be valid UTF-8 | Accepted |
+| [0015](0015-built-in-plain-text-secret-processor.md) | Built-in plain text secret processor | Accepted |
 
 ## Format
 
