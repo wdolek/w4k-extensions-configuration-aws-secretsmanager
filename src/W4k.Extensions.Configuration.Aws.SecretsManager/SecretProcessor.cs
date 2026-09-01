@@ -16,6 +16,15 @@ public static class SecretsProcessor
         new SecretProcessor<JsonElement>(
             new JsonElementParser(),
             new JsonElementTokenizer());
+
+    /// <summary>
+    /// Processor of plain text secrets, places the whole secret string under configuration key prefix.
+    /// </summary>
+    /// <remarks>
+    /// Use <see cref="PlainTextSecretProcessor(string)"/> constructor to place the value
+    /// under an explicit configuration key.
+    /// </remarks>
+    public static readonly ISecretProcessor PlainText = new PlainTextSecretProcessor();
 }
 
 /// <inheritdoc/>

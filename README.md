@@ -156,7 +156,34 @@ When binding your option type, make sure path is considered or that you bind to 
 By default, AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
 In some cases, custom format may be used - either a complex JSON object or even an XML document (or actually anything, imagination is the limit).
 
-In order to support such scenarios, it is possible to specify custom secret processor:
+A secret holding a single plain value - a password, an API key, a connection string - is a common pattern as well.
+Use `PlainTextSecretProcessor` to place the whole secret string under a single configuration key:
+
+```csharp
+// explicit key: value lands under "Clients:MyService:ApiKey" ("{prefix}:{key}")
+builder.Configuration.AddSecretsManager(
+    "prod/myapp/stripe",
+    source => source
+        .WithConfigurationKeyPrefix("Clients:MyService")
+        .WithPlainTextProcessor("ApiKey"));
+
+// prefix-as-key: value lands under "Clients:MyService" (the prefix verbatim)
+builder.Configuration.AddSecretsManager(
+    "prod/myapp/stripe",
+    source => source
+        .WithConfigurationKeyPrefix("Clients:MyService")
+        .WithPlainTextProcessor());
+```
+
+The secret value is used as-is - trailing newlines are preserved - and key transformers (e.g. `__` to `:`, see
+[Configuration key transformation](#configuration-key-transformation)) apply to the resulting configuration key.
+
+> [!NOTE]
+> When no configuration key prefix is set, use the explicit key variant - a value cannot live at the
+> configuration root. An empty prefix with the parameterless processor throws `InvalidOperationException`
+> at processing time.
+
+In order to support other scenarios, it is possible to specify custom secret processor:
 
 ```csharp
 // implements `ISecretsProcessor`

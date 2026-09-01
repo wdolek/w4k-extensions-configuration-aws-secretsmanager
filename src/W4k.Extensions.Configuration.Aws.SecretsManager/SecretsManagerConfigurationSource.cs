@@ -205,6 +205,35 @@ public sealed class SecretsManagerConfigurationBuilder
     }
 
     /// <summary>
+    /// Sets <see cref="SecretsProcessor.PlainText"/> as secret processor.
+    /// </summary>
+    /// <remarks>
+    /// The secret value is placed under <see cref="SecretsManagerConfigurationSource.ConfigurationKeyPrefix"/> verbatim.
+    /// </remarks>
+    /// <returns>Current builder instance.</returns>
+    public SecretsManagerConfigurationBuilder WithPlainTextProcessor()
+    {
+        _source.Processor = SecretsProcessor.PlainText;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets <see cref="PlainTextSecretProcessor"/> with explicit configuration key as secret processor.
+    /// </summary>
+    /// <remarks>
+    /// The secret value is placed under <c>{ConfigurationKeyPrefix}:{configurationKey}</c>,
+    /// or under the key standalone when no prefix is set.
+    /// </remarks>
+    /// <param name="configurationKey">Configuration key the secret value is placed under.</param>
+    /// <returns>Current builder instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="configurationKey"/> is <see langword="null"/> or consists only of white-space characters.</exception>
+    public SecretsManagerConfigurationBuilder WithPlainTextProcessor(string configurationKey)
+    {
+        _source.Processor = new PlainTextSecretProcessor(configurationKey);
+        return this;
+    }
+
+    /// <summary>
     /// Clears all key transformers.
     /// </summary>
     /// <returns>Current builder instance.</returns>

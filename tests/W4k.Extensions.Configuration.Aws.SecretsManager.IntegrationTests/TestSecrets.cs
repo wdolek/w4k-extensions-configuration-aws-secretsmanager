@@ -28,4 +28,7 @@ public static class TestSecrets
             "PIN": [ 5, 5, 5, 2, 3, 6, 8 ]
         }
         """;
+
+    public const string PlainTextSecretName = "w4k/awssm/plain-text-secret";
+    public const string PlainTextSecretValue = "L3_S3cr37";
 }

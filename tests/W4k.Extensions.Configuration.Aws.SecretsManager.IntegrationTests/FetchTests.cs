@@ -97,7 +97,7 @@ public class FetchTests
                 SecretsManagerTestFixture.BinarySecretName,
                 source => source
                     .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
-                    .WithProcessor(new PlainTextSecretProcessor()))
+                    .WithPlainTextProcessor("SecretKey"))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -120,6 +120,56 @@ public class FetchTests
             .ThrowsExactly<SecretRetrievalException>();
 
         await Assert.That(ex!.InnerException).IsTypeOf<DecoderFallbackException>();
+    }
+
+    [Test]
+    public async Task FetchPlainTextSecretWithExplicitKey()
+    {
+        // arrange
+        var expected = new KeyValuePair<string, string?>[]
+        {
+            new("Clients:MyService:ApiKey", TestSecrets.PlainTextSecretValue),
+        };
+
+        // act
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(
+                SecretsManagerTestFixture.PlainTextSecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithConfigurationKeyPrefix("Clients:MyService")
+                    .WithPlainTextProcessor("ApiKey"))
+            .Build();
+
+        var secrets = config.AsEnumerable().ToList();
+
+        // assert
+        await Assert.That(secrets).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    public async Task FetchPlainTextSecretUsingPrefixAsKey()
+    {
+        // arrange
+        var expected = new KeyValuePair<string, string?>[]
+        {
+            new("MyService", TestSecrets.PlainTextSecretValue),
+        };
+
+        // act
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(
+                SecretsManagerTestFixture.PlainTextSecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithConfigurationKeyPrefix("MyService")
+                    .WithPlainTextProcessor())
+            .Build();
+
+        var secrets = config.AsEnumerable().ToList();
+
+        // assert
+        await Assert.That(secrets).IsEquivalentTo(expected);
     }
 
     [Test]
@@ -152,12 +202,6 @@ public class FetchTests
 
         // assert
         await Assert.That(secrets).IsEquivalentTo(expected);
-    }
-
-    private sealed class PlainTextSecretProcessor : ISecretProcessor
-    {
-        public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString) =>
-            new() { ["SecretKey"] = secretString };
     }
 
     private class TestKeyTransformer : IConfigurationKeyTransformer

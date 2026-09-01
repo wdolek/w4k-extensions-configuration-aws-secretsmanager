@@ -7,7 +7,7 @@ a 2.x minor unless noted.
 
 ## F1. Plain-text secret processor
 
-**Status:** open · **Breaking:** no · **Effort:** S · **Priority:** high
+**Status:** done · **Breaking:** no · **Effort:** S · **Priority:** high
 
 ### Why
 
