@@ -13,6 +13,10 @@ public static class TestSecrets
     public const string BinarySecretName = "w4k/awssm/binary-secret";
     public const string BinarySecretValue = "The cake is a lie.";
 
+    public const string InvalidUtf8BinarySecretName = "w4k/awssm/invalid-utf8-binary-secret";
+    // 0xC3 0x28 is an invalid UTF-8 sequence (continuation byte expected)
+    public static readonly byte[] InvalidUtf8BinarySecretValue = [0xC3, 0x28];
+
     public const string ComplexSecretName = "w4k/awssm/complex-secret";
     public const string ComplexJson = """
         {

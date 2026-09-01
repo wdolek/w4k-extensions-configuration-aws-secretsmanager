@@ -68,6 +68,33 @@ public class SecretFetcherShould
     }
 
     [Test]
+    public async Task ThrowIfBinarySecretIsNotValidUtf8()
+    {
+        // arrange
+        // 0xC3 0x28 is an invalid UTF-8 sequence (continuation byte expected)
+        var secretBytes = new byte[] { 0xC3, 0x28 };
+
+        // the AWS SDK constructs the stream with `publiclyVisible: true` (see `MemoryStreamUnmarshaller`), mimic it
+        using var secretBinary = new MemoryStream(secretBytes, 0, secretBytes.Length, writable: true, publiclyVisible: true);
+
+        var getSecretValueResponse = new GetSecretValueResponse
+        {
+            VersionId = "d6d1b757d46d449d1835a10869dfb9d1",
+            SecretBinary = secretBinary,
+        };
+
+        var secretsManager = IAmazonSecretsManager.Mock();
+        secretsManager
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .Returns(getSecretValueResponse);
+
+        var secretFetcher = new SecretFetcher(secretsManager.Object);
+
+        // act & assert
+        await Assert.That(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None)).ThrowsExactly<DecoderFallbackException>();
+    }
+
+    [Test]
     public async Task ThrowIfSecretIsNeitherStringOrBinary()
     {
         // arrange

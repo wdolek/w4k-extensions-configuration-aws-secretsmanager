@@ -6,6 +6,10 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 internal sealed class SecretFetcher
 {
+    // strict UTF-8, non-UTF-8 payloads fail loudly instead of being silently
+    // corrupted with U+FFFD replacement characters (see C7)
+    private static readonly UTF8Encoding Utf8Strict = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
     private readonly IAmazonSecretsManager _secretsManager;
 
     public SecretFetcher(IAmazonSecretsManager secretsManager)
@@ -27,7 +31,7 @@ internal sealed class SecretFetcher
         {
             // the AWS SDK has already base64-decoded the payload into the stream, read it as-is
             using var binary = response.SecretBinary;
-            var secretString = Encoding.UTF8.GetString(binary.GetBuffer(), 0, (int)binary.Length);
+            var secretString = Utf8Strict.GetString(binary.GetBuffer(), 0, (int)binary.Length);
 
             return new(response.ARN, response.VersionId, secretString);
         }

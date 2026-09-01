@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
@@ -103,6 +104,22 @@ public class FetchTests
 
         // assert
         await Assert.That(secrets).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    public async Task ThrowWhenBinarySecretIsNotValidUtf8()
+    {
+        // act & assert
+        var ex = await Assert.That(
+                () =>
+                {
+                    new ConfigurationBuilder()
+                        .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.InvalidUtf8BinarySecretName)
+                        .Build();
+                })
+            .ThrowsExactly<SecretRetrievalException>();
+
+        await Assert.That(ex!.InnerException).IsTypeOf<DecoderFallbackException>();
     }
 
     [Test]

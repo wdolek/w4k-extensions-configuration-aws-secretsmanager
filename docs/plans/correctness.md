@@ -319,7 +319,7 @@ exception thrown on timeout is still unwrapped correctly by `HandleException`
 
 ## C7. Non-UTF-8 binary secrets are silently corrupted
 
-**Status:** open · **Breaking:** behavioural (silent corruption → loud failure) · **Effort:** XS
+**Status:** done · **Breaking:** behavioural (silent corruption → loud failure) · **Effort:** XS
 
 ### Why
 
