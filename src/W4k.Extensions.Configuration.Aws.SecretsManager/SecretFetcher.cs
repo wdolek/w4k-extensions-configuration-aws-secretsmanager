@@ -6,8 +6,8 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 internal sealed class SecretFetcher
 {
-    // strict UTF-8, non-UTF-8 payloads fail loudly instead of being silently
-    // corrupted with U+FFFD replacement characters (see C7)
+    // strict UTF-8: non-UTF-8 payloads fail loudly instead of being silently
+    // corrupted with U+FFFD replacement characters (see ADR-0014)
     private static readonly UTF8Encoding Utf8Strict = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private readonly IAmazonSecretsManager _secretsManager;
