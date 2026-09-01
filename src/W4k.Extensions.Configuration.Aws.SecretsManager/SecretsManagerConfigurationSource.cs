@@ -52,7 +52,7 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// <summary>
     /// Gets snapshot of <see cref="KeyTransformers"/> taken when the source is built, <see langword="null"/> when the source has not been built yet.
     /// </summary>
-    internal IConfigurationKeyTransformer[]? KeyTransformersSnapshot { get; private set; }
+    private IConfigurationKeyTransformer[]? KeyTransformersSnapshot { get; set; }
 
     /// <summary>
     /// Gets key transformers effective for secret processing: the snapshot taken when the source is built
@@ -61,9 +61,7 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// </summary>
     /// <returns>Span of key transformers to apply.</returns>
     internal ReadOnlySpan<IConfigurationKeyTransformer> GetKeyTransformers() =>
-        KeyTransformersSnapshot is { } snapshot
-            ? snapshot
-            : CollectionsMarshal.AsSpan(KeyTransformers);
+        KeyTransformersSnapshot ?? CollectionsMarshal.AsSpan(KeyTransformers);
 
     /// <summary>
     /// Gets or sets configuration key prefix, if not set, secret properties are placed directly in configuration root.
