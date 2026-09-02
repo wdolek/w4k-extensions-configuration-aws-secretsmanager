@@ -9,11 +9,8 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretsManagerDiagnosticsShould
 {
-    private const string SecretArn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:le-secret-AbCdEfG";
-
     private static readonly GetSecretValueResponse InitialSecretValueResponse = new()
     {
-        ARN = SecretArn,
         VersionId = "d6d1b757d46d449d1835a10869dfb9d1",
         SecretString = """
             {
@@ -23,7 +20,7 @@ public class SecretsManagerDiagnosticsShould
     };
 
     [Test]
-    public async Task TagLoadActivityWithSecretIdVersionIdAndArn()
+    public async Task TagLoadActivityWithSecretIdAndVersionId()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -45,11 +42,10 @@ public class SecretsManagerDiagnosticsShould
         await Assert.That(activity).IsNotNull();
         await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.id")).IsEqualTo(secretName);
         await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d1");
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.arn")).IsEqualTo(SecretArn);
     }
 
     [Test]
-    public async Task TagReloadActivityWithSecretIdVersionIdAndArn()
+    public async Task TagReloadActivityWithSecretIdAndVersionId()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -57,7 +53,6 @@ public class SecretsManagerDiagnosticsShould
 
         var newSecretValueResponse = new GetSecretValueResponse
         {
-            ARN = SecretArn,
             VersionId = "d6d1b757d46d449d1835a10869dfb9d2",
             SecretString = """
                 {
@@ -83,11 +78,10 @@ public class SecretsManagerDiagnosticsShould
         await Assert.That(activity).IsNotNull();
         await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.id")).IsEqualTo(secretName);
         await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d2");
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.arn")).IsEqualTo(SecretArn);
     }
 
     [Test]
-    public async Task TagSkippedReloadActivityWithSecretIdVersionIdAndArn()
+    public async Task TagSkippedReloadActivityWithSecretIdAndVersionId()
     {
         // arrange
         var secretName = NewUniqueSecretName();
@@ -110,7 +104,6 @@ public class SecretsManagerDiagnosticsShould
         await Assert.That(activity).IsNotNull();
         await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.id")).IsEqualTo(secretName);
         await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.version_id")).IsEqualTo("d6d1b757d46d449d1835a10869dfb9d1");
-        await Assert.That(GetTag(activity!, "aws.secretsmanager.secret.arn")).IsEqualTo(SecretArn);
     }
 
     [Test]

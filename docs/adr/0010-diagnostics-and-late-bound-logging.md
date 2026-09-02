@@ -55,6 +55,12 @@ primitive with no package cost and native OpenTelemetry support:
 Log and trace payloads carry secret **name** and **version id** only, never the
 value.
 
+> **Amendment (see [ADR-0016](0016-do-not-tag-secrets-with-their-arn.md)):** an
+> earlier revision also tagged the secret's ARN, which embeds the AWS account
+> id and therefore violated the "name and version id only" rule above. ADR-0016
+> removes the ARN tag and records it as a permanent constraint, not an
+> oversight.
+
 ## Consequences
 
 - Refresh behaviour is observable in standard OTel tooling with one `AddSource`

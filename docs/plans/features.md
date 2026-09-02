@@ -227,12 +227,22 @@ and after a successful fetch:
 
 ```csharp
 activity?.SetTag("aws.secretsmanager.secret.version_id", secret.VersionId);
-activity?.SetTag("aws.secretsmanager.secret.arn", secret.Arn); // full ARN from the response, when available
 ```
 
 Per [ADR-0010](../adr/0010-diagnostics-and-late-bound-logging.md), secret
-*values* must never be emitted. Names, ARNs and version ids are already logged,
-so they are in scope. Do not add tags derived from the payload.
+*values* must never be emitted, and payloads carry secret **name** and
+**version id** only. Do not add tags derived from the payload.
+
+> **Amendment ([ADR-0016](../adr/0016-do-not-tag-secrets-with-their-arn.md)):**
+> an earlier revision of this feature also tagged the secret's full ARN
+> (`aws.secretsmanager.secret.arn`, populated from the fetch response). That
+> was removed before release: an ARN embeds the AWS account id
+> (`arn:aws:secretsmanager:{region}:{account-id}:secret:{name}`), and traces
+> routinely leave the process boundary (OTel exporters, SaaS observability
+> backends), which is exactly the leak ADR-0010's "name and version id only"
+> rule exists to prevent. The configured `secret.id` tag (name or ARN, as the
+> consumer supplied it) is sufficient to correlate telemetry. ADR-0016 records
+> this as a permanent constraint so it is not silently reintroduced.
 
 Prefer `StartActivity(name, ActivityKind.Internal, tags: ...)` if you want to
 avoid the null-check dance, but note tags passed at start are visible to

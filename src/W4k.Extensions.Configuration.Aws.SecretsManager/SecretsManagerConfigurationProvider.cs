@@ -12,7 +12,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
     private const string SecretIdTagName = "aws.secretsmanager.secret.id";
-    private const string SecretArnTagName = "aws.secretsmanager.secret.arn";
     private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
 
     private readonly SecretFetcher _secretFetcher;
@@ -234,15 +233,13 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         OnReload();
     }
 
-    private static void SetFetchedSecretTags(Activity? activity, SecretValue secret)
-    {
+    // does not tag the secret's ARN: an ARN embeds the AWS account id
+    // (arn:aws:secretsmanager:{region}:{account-id}:secret:{name}), and traces/metrics
+    // routinely leave the process boundary (OTel exporters, SaaS observability backends) -
+    // the secret id configured by the consumer is enough to correlate telemetry.
+    // see ADR-0016 - this is a permanent constraint, not an oversight.
+    private static void SetFetchedSecretTags(Activity? activity, SecretValue secret) =>
         activity?.SetTag(VersionIdTagName, secret.VersionId);
-
-        if (secret.Arn is not null)
-        {
-            activity?.SetTag(SecretArnTagName, secret.Arn);
-        }
-    }
 }
 
 internal static partial class LoggerExtensions

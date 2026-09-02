@@ -24,16 +24,27 @@ internal sealed class SecretFetcher
         var response = await _secretsManager.GetSecretValueAsync(request, cancellationToken).ConfigureAwait(false);
         if (response.SecretString is not null)
         {
-            return new(response.ARN, response.VersionId, response.SecretString);
+            return new(response.VersionId, response.SecretString);
         }
 
         if (response.SecretBinary is not null)
         {
             // the AWS SDK has already base64-decoded the payload into the stream, read it as-is
             using var binary = response.SecretBinary;
-            var secretString = Utf8Strict.GetString(binary.GetBuffer(), 0, (int)binary.Length);
 
-            return new(response.ARN, response.VersionId, secretString);
+            try
+            {
+                var secretString = Utf8Strict.GetString(binary.GetBuffer(), 0, (int)binary.Length);
+                return new(response.VersionId, secretString);
+            }
+            catch (DecoderFallbackException)
+            {
+                // do not chain the original DecoderFallbackException as InnerException:
+                // its default Message embeds the offending raw bytes
+                throw new SecretRetrievalException(
+                    $"Secret '{request.SecretId}' is stored as binary and its content is not valid UTF-8; binary secrets must decode as UTF-8 text (see ADR-0014)",
+                    request.SecretId);
+            }
         }
 
         // Should Not Happen™
@@ -66,14 +77,12 @@ internal sealed class SecretFetcher
 
 internal sealed class SecretValue
 {
-    public SecretValue(string? arn, string versionId, string value)
+    public SecretValue(string versionId, string value)
     {
-        Arn = arn;
         VersionId = versionId;
         Value = value;
     }
 
-    public string? Arn { get; }
     public string VersionId { get; }
     public string Value { get; }
 }

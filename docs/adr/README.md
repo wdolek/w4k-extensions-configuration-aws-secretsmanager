@@ -37,6 +37,8 @@ Three constraints shape almost every decision in this library:
 | [0013](0013-metrics.md) | Metrics | Accepted |
 | [0014](0014-binary-secrets-must-be-valid-utf8.md) | Binary secrets must be valid UTF-8 | Accepted |
 | [0015](0015-built-in-plain-text-secret-processor.md) | Built-in plain text secret processor | Accepted |
+| [0016](0016-do-not-tag-secrets-with-their-arn.md) | Do not tag secrets with their ARN | Accepted |
+| [0017](0017-binary-secret-decode-failures-omit-the-payload.md) | Binary secret decode failures omit the payload | Accepted |
 
 ## Format
 
@@ -44,3 +46,21 @@ Three constraints shape almost every decision in this library:
 **Consequences**. Files are named `NNNN-kebab-case-title.md`. Records are
 immutable — to reverse a decision, add a new ADR and mark the old one
 `Superseded by ADR-NNNN`.
+
+Two lighter-weight notes are allowed on an otherwise-immutable ADR, both as an
+**appended** blockquote only — never edit or delete the original prose they
+refer to, and never change `Status` for either:
+
+- `> **Amendment (see ADR-NNNN):**` — a later ADR narrowed or partially
+  changed *this* ADR's own decision, without replacing it outright. If the
+  later ADR replaces the decision entirely instead of narrowing it, that is a
+  full reversal: use `Superseded by ADR-NNNN` above, not this note.
+- `> **Correction (see ADR-NNNN):**` — a detail in this ADR's Context or
+  Consequences (not its core Decision) was made inaccurate by a later,
+  otherwise-unrelated ADR — e.g. a passing description of implementation
+  mechanics, or a claim like "requires a custom processor" that held until a
+  later ADR added a built-in alternative. This ADR's own decision is
+  unaffected; only a detail it mentioned in passing is now stale.
+
+Both notes exist so a reader who opens an old ADR is one line away from
+today's reality, without ever needing to reconstruct it from `git log`.

@@ -159,8 +159,8 @@ In some cases, custom format may be used - either a complex JSON object or even 
 > [!NOTE]
 > Secrets stored as binary data (`SecretBinary`) are decoded as UTF-8 and then handed to the configured
 > processor, exactly like `SecretString` - the configured processor sees a string either way.
-> Payloads that are not valid UTF-8 (certificates, signing keys, ...) may be corrupted by this decode,
-> as the raw bytes cannot travel through the configuration pipeline.
+> Payloads that are not valid UTF-8 (certificates, signing keys, ...) are not supported: loading such
+> a secret throws a `SecretRetrievalException` instead of producing a corrupted value.
 
 A secret holding a single plain value - a password, an API key, a connection string - is a common pattern as well.
 Use `PlainTextSecretProcessor` to place the whole secret string under a single configuration key:
@@ -344,7 +344,6 @@ To be able to see traces, it is necessary to listen to activity source named "`W
 Activities `W4k.SecretsManager.Load` and `W4k.SecretsManager.Reload` are tagged with:
 
 - `aws.secretsmanager.secret.id` — identifier of the secret being loaded, as configured (name or ARN),
-- `aws.secretsmanager.secret.arn` — full ARN of the secret, as returned by AWS Secrets Manager (set after successful fetch),
 - `aws.secretsmanager.secret.version_id` — version id of the fetched secret.
 
 Secret values are never emitted.

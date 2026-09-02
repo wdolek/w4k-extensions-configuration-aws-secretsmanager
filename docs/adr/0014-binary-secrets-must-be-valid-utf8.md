@@ -36,6 +36,14 @@ A non-UTF-8 payload throws `DecoderFallbackException` at fetch time, enveloped
 into `SecretRetrievalException` by the existing error handling
 ([ADR-0006](0006-error-handling-and-optional-secrets.md)).
 
+> **Amendment (see [ADR-0017](0017-binary-secret-decode-failures-omit-the-payload.md)):**
+> "enveloped" above initially meant `DecoderFallbackException` was kept as
+> `InnerException`. That leaked the offending bytes into logs/traces, since
+> `DecoderFallbackException.Message` embeds them. ADR-0017 catches the
+> exception in `SecretFetcher` itself and replaces it with a sanitized
+> `SecretRetrievalException` that carries no inner exception. The "fail
+> loudly" decision below stands; only the exception shape changed.
+
 Failing loudly beats corrupting silently. This refines the binary-normalisation
 step described in ADR-0003 — the processing pipeline itself is unchanged.
 
