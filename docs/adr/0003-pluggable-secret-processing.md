@@ -49,6 +49,15 @@ Binary secrets are normalised in `SecretFetcher` before processing: the stream i
 read, base64-decoded and interpreted as a UTF-8 string. Processors therefore only
 ever deal with `string`, and a custom processor can handle binary formats too.
 
+> **Correction (see [ADR-0014](0014-binary-secrets-must-be-valid-utf8.md)):** the
+> normalisation described above was buggy: the payload was base64-decoded a
+> second time (the AWS SDK had already decoded it) and read with a lenient
+> `Encoding.UTF8` that replaced invalid bytes with `U+FFFD` instead of failing.
+> `SecretFetcher` no longer base64-decodes `SecretBinary`, and decodes strictly
+> (throws on invalid UTF-8). The decision this ADR records — normalise to
+> `string` before handing off to processors — is unaffected; only the buggy
+> mechanics described here were fixed.
+
 A payload the parser rejects results in a `FormatException` naming the secret and
 hinting at processor selection, rather than a silent empty configuration.
 

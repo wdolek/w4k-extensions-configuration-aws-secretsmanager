@@ -71,6 +71,8 @@ public class SecretFetcherShould
     public async Task ThrowIfBinarySecretIsNotValidUtf8()
     {
         // arrange
+        var secretId = "secret123";
+
         // 0xC3 0x28 is an invalid UTF-8 sequence (continuation byte expected)
         var secretBytes = new byte[] { 0xC3, 0x28 };
 
@@ -91,7 +93,17 @@ public class SecretFetcherShould
         var secretFetcher = new SecretFetcher(secretsManager.Object);
 
         // act & assert
-        await Assert.That(async () => await secretFetcher.GetSecret("secret123", null, CancellationToken.None)).ThrowsExactly<DecoderFallbackException>();
+        // the decode failure must be reported without leaking any part of the payload:
+        // - a `SecretRetrievalException` naming only the secret id, not the raw `DecoderFallbackException`
+        //   (whose default message embeds the offending bytes, e.g. "Unable to translate bytes [C3]...")
+        // - no inner exception at all, so nothing upstream can print the leaky message via `Exception.ToString()`
+        var ex = await Assert.That(async () => await secretFetcher.GetSecret(secretId, null, CancellationToken.None))
+            .ThrowsExactly<SecretRetrievalException>();
+
+        await Assert.That(ex!.SecretName).IsEqualTo(secretId);
+        await Assert.That(ex.InnerException).IsNull();
+        await Assert.That(ex.Message).DoesNotContain("0xC3");
+        await Assert.That(ex.Message).DoesNotContain("[C3]");
     }
 
     [Test]

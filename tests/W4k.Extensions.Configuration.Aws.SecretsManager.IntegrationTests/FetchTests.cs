@@ -119,7 +119,9 @@ public class FetchTests
                 })
             .ThrowsExactly<SecretRetrievalException>();
 
-        await Assert.That(ex!.InnerException).IsTypeOf<DecoderFallbackException>();
+        await Assert.That(ex!.InnerException).IsTypeOf<SecretRetrievalException>();
+        await Assert.That(ex.InnerException!.InnerException).IsNull();
+        await Assert.That(ex.ToString()).DoesNotContain("DecoderFallbackException");
     }
 
     [Test]

@@ -58,3 +58,9 @@ Additional choices specific to this library:
   parse and are reported as a `FormatException`.
 - If the upstream JSON configuration provider changes its flattening rules, this
   implementation must be re-aligned.
+
+> **Correction (see [ADR-0015](0015-built-in-plain-text-secret-processor.md)):**
+> "requires a custom one" above was accurate when written; it no longer is on
+> its own. The built-in `PlainTextSecretProcessor` now covers the common
+> single-value case without a custom processor; anything else still requires
+> implementing `ISecretProcessor` ([ADR-0003](0003-pluggable-secret-processing.md)).

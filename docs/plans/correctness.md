@@ -354,6 +354,14 @@ var secretString = Utf8Strict.GetString(binary.GetBuffer(), 0, (int)binary.Lengt
 - The thrown `DecoderFallbackException` is enveloped into
   `SecretRetrievalException` by the existing provider error handling, so no
   new plumbing is needed.
+
+  > **Amendment ([ADR-0017](../adr/0017-binary-secret-decode-failures-omit-the-payload.md)):**
+  > that envelope leaked the secret - `DecoderFallbackException.Message` embeds
+  > the offending raw bytes, and both the logger call and `Exception.ToString()`
+  > on the outer exception would print them. `SecretFetcher` now catches the
+  > exception itself and raises a sanitized `SecretRetrievalException` with no
+  > inner exception; this *is* new plumbing, added post-release per ADR-0017.
+
 - Alternative rejected: base64-encoding the payload in the fetcher so a
   processor could decode it — that changes what *every* processor sees and
   breaks the JSON-on-binary-secret path that C1's tests pin down.

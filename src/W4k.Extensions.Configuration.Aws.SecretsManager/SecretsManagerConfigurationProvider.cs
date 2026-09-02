@@ -12,7 +12,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
 {
     private const string SecretIdTagName = "aws.secretsmanager.secret.id";
-    private const string SecretArnTagName = "aws.secretsmanager.secret.arn";
     private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
 
     private readonly SecretFetcher _secretFetcher;
@@ -89,7 +88,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
-            SetFetchedSecretTags(activity, secret);
+            activity?.SetTag(VersionIdTagName, secret.VersionId);
+
             SetData(
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
@@ -149,7 +149,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
-            SetFetchedSecretTags(activity, secret);
+            activity?.SetTag(VersionIdTagName, secret.VersionId);
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
@@ -232,16 +232,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         Data = data;
 
         OnReload();
-    }
-
-    private static void SetFetchedSecretTags(Activity? activity, SecretValue secret)
-    {
-        activity?.SetTag(VersionIdTagName, secret.VersionId);
-
-        if (secret.Arn is not null)
-        {
-            activity?.SetTag(SecretArnTagName, secret.Arn);
-        }
     }
 }
 
