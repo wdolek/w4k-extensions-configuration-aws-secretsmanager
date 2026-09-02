@@ -8,6 +8,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDisposable, IAsyncDisposable
 {
     private readonly TimeSpan _interval;
+    private readonly TimeSpan _maxJitter;
     private readonly TimeProvider _clock;
 
     private ITimer? _timer;
@@ -18,7 +19,18 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     /// <param name="interval">Polling interval.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerPollingWatcher(TimeSpan interval)
-        : this(interval, TimeProvider.System)
+        : this(interval, TimeSpan.Zero, TimeProvider.System)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
+    /// </summary>
+    /// <param name="interval">Polling interval.</param>
+    /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
+    public SecretsManagerPollingWatcher(TimeSpan interval, TimeSpan maxJitter)
+        : this(interval, maxJitter, TimeProvider.System)
     {
     }
 
@@ -30,10 +42,26 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SecretsManagerPollingWatcher(TimeSpan interval, TimeProvider timeProvider)
+        : this(interval, TimeSpan.Zero, timeProvider)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
+    /// </summary>
+    /// <param name="interval">Polling interval.</param>
+    /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
+    /// <param name="timeProvider">Time provider.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is less or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
+    public SecretsManagerPollingWatcher(TimeSpan interval, TimeSpan maxJitter, TimeProvider timeProvider)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(interval, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxJitter, TimeSpan.Zero);
         ArgumentNullException.ThrowIfNull(timeProvider);
+
         _interval = interval;
+        _maxJitter = maxJitter;
         _clock = timeProvider;
     }
 
@@ -54,7 +82,7 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
         ThrowIfStarted(_timer);
-        _timer = _clock.CreateTimer(ExecuteReload, provider, _interval, _interval);
+        _timer = _clock.CreateTimer(ExecuteReload, provider, GetNextInterval(), Timeout.InfiniteTimeSpan);
     }
 
     /// <inheritdoc/>
@@ -71,11 +99,33 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
         _timer = null;
     }
 
-    private static void ExecuteReload(object? state)
+    private void ExecuteReload(object? state)
     {
         var provider = (ISecretsManagerConfigurationProvider)state!;
-        provider.Reload();
+        try
+        {
+            provider.Reload();
+        }
+        finally
+        {
+            Reschedule();
+        }
     }
+
+    private void Reschedule()
+    {
+        try
+        {
+            _timer?.Change(GetNextInterval(), Timeout.InfiniteTimeSpan);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private TimeSpan GetNextInterval() => _maxJitter > TimeSpan.Zero
+        ? _interval + (Random.Shared.NextDouble() * _maxJitter)
+        : _interval;
 
     private static void ThrowIfStarted(ITimer? timer)
     {

@@ -158,7 +158,7 @@ polling, with a short SQS handler example.
 
 ## F3. Jitter for the polling watcher
 
-**Status:** open · **Breaking:** no · **Effort:** S
+**Status:** done · **Breaking:** no · **Effort:** S
 
 ### Why
 

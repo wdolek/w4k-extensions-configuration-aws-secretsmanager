@@ -249,6 +249,15 @@ builder.Configuration.AddSecretsManager(
     source => source.WithPollingWatcher(TimeSpan.FromMinutes(5));
 ```
 
+When many instances poll at the same interval (a fleet of pods, for example), they can synchronize
+and hit the Secrets Manager rate limit together. An optional jitter spreads the polling: each reload
+is scheduled at the interval plus a random duration between zero and `maxJitter` (applied to the first
+reload and to every subsequent one):
+
+```csharp
+source => source.WithPollingWatcher(TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(30));
+```
+
 When refreshing secrets, use `IOptionsSnapshot<T>` or `IOptionsMonitor<T>` instead of just `IOptions<T>`.
 For more details about _Options pattern_, see official documentation [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options).
 
