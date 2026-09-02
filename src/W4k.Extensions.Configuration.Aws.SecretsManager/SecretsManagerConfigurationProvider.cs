@@ -19,6 +19,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
     private int _reloadInProgress;
     private string? _currentSecretVersionId;
+    private long _lastLoadedUtcTicks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SecretsManagerConfigurationProvider"/> class.
@@ -36,6 +37,29 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// Gets associated <see cref="SecretsManagerConfigurationSource"/>.
     /// </summary>
     public SecretsManagerConfigurationSource Source { get; }
+
+    /// <summary>
+    /// Gets version id of the last successfully loaded secret,
+    /// <see langword="null"/> when the secret has not been loaded yet.
+    /// </summary>
+    public string? CurrentVersionId => Volatile.Read(ref _currentSecretVersionId);
+
+    /// <summary>
+    /// Gets UTC timestamp of the last successful load,
+    /// <see langword="null"/> when the secret has not been loaded yet.
+    /// </summary>
+    /// <remarks>
+    /// A skipped reload (secret version unchanged) does not update the timestamp.
+    /// </remarks>
+    public DateTimeOffset? LastLoadedAt
+    {
+        get
+        {
+            var utcTicks = Volatile.Read(ref _lastLoadedUtcTicks);
+
+            return utcTicks == 0 ? null : new DateTimeOffset(utcTicks, TimeSpan.Zero);
+        }
+    }
 
     /// <inheritdoc/>
     public override string ToString() => $"{GetType().Name}: {Source.SecretName}";
@@ -203,6 +227,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     private void SetData(string versionId, Dictionary<string, string?> data)
     {
         Volatile.Write(ref _currentSecretVersionId, versionId);
+        Volatile.Write(ref _lastLoadedUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
         Data = data;
 
         OnReload();

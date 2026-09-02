@@ -217,4 +217,84 @@ public class SecretsManagerConfigurationProviderShould
         // assert
         await Assert.That(ex!.Message).Contains("already been built");
     }
+
+    [Test]
+    public async Task ExposeLastLoadStateAfterLoad()
+    {
+        // arrange
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
+        secretsManagerStub
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .Returns(InitialSecretValueResponse);
+
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // assert: nothing loaded yet
+        await Assert.That(provider.CurrentVersionId).IsNull();
+        await Assert.That(provider.LastLoadedAt).IsNull();
+
+        // act
+        var beforeLoad = DateTimeOffset.UtcNow;
+        provider.Load();
+
+        // assert
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(InitialSecretValueResponse.VersionId);
+        await Assert.That(provider.LastLoadedAt).IsNotNull();
+        await Assert.That(provider.LastLoadedAt!.Value >= beforeLoad).IsTrue();
+    }
+
+    [Test]
+    public async Task UpdateLastLoadStateOnReloadWithNewVersion()
+    {
+        // arrange
+        var newSecretsResponse = new GetSecretValueResponse
+        {
+            VersionId = "d6d1b757d46d449d1835a10869dfb9d2",
+            SecretString = """
+                {
+                    "AppSettingsKey": "Second value"
+                }
+                """
+        };
+
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
+        secretsManagerStub
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .ReturnsSequentially(InitialSecretValueResponse, newSecretsResponse);
+
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act
+        provider.Load();
+        provider.Reload();
+
+        // assert
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(newSecretsResponse.VersionId);
+        await Assert.That(provider.LastLoadedAt).IsNotNull();
+    }
+
+    [Test]
+    public async Task KeepLastLoadStateWhenReloadIsSkipped()
+    {
+        // arrange
+        var secretsManagerStub = IAmazonSecretsManager.Mock();
+        secretsManagerStub
+            .GetSecretValueAsync(Any<GetSecretValueRequest>(), Any<CancellationToken>())
+            .Returns(InitialSecretValueResponse);
+
+        var source = new SecretsManagerConfigurationSource { SecretName = "le-secret", SecretsManager = secretsManagerStub.Object };
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // act
+        provider.Load();
+        var lastLoadedAt = provider.LastLoadedAt;
+
+        provider.Reload();
+
+        // assert
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(InitialSecretValueResponse.VersionId);
+        await Assert.That(provider.LastLoadedAt).IsEqualTo(lastLoadedAt);
+    }
 }

@@ -302,7 +302,7 @@ Needs an ADR extending ADR-0010 to cover metrics.
 
 ## F6. Expose last-load state on the provider
 
-**Status:** open · **Breaking:** no (additive) · **Effort:** XS
+**Status:** done · **Breaking:** no (additive) · **Effort:** XS
 **Depends on:** pairs naturally with F5
 
 ### Why
