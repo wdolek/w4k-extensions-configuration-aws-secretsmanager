@@ -88,7 +88,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
-            SetFetchedSecretTags(activity, secret);
+            activity?.SetTag(VersionIdTagName, secret.VersionId);
+
             SetData(
                 versionId: secret.VersionId,
                 data: secretProcessor.GetConfigurationData(Source, secret.Value));
@@ -148,7 +149,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .GetAwaiter()
                 .GetResult();
 
-            SetFetchedSecretTags(activity, secret);
+            activity?.SetTag(VersionIdTagName, secret.VersionId);
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
@@ -232,14 +233,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
         OnReload();
     }
-
-    // does not tag the secret's ARN: an ARN embeds the AWS account id
-    // (arn:aws:secretsmanager:{region}:{account-id}:secret:{name}), and traces/metrics
-    // routinely leave the process boundary (OTel exporters, SaaS observability backends) -
-    // the secret id configured by the consumer is enough to correlate telemetry.
-    // see ADR-0016 - this is a permanent constraint, not an oversight.
-    private static void SetFetchedSecretTags(Activity? activity, SecretValue secret) =>
-        activity?.SetTag(VersionIdTagName, secret.VersionId);
 }
 
 internal static partial class LoggerExtensions
