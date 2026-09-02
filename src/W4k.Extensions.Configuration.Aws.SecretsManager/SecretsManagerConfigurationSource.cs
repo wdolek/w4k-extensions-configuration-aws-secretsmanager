@@ -322,6 +322,34 @@ public sealed class SecretsManagerConfigurationBuilder
     }
 
     /// <summary>
+    /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
+    /// </summary>
+    /// <param name="pollingInterval">Polling interval.</param>
+    /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
+    /// <returns>Current builder instance.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
+    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter)
+    {
+        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter);
+        return this;
+    }
+
+    /// <summary>
+    /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
+    /// </summary>
+    /// <param name="pollingInterval">Polling interval.</param>
+    /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
+    /// <param name="timeProvider">Time provider.</param>
+    /// <returns>Current builder instance.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
+    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter, TimeProvider timeProvider)
+    {
+        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider);
+        return this;
+    }
+
+    /// <summary>
     /// Sets timeout for the secret fetch operation.
     /// </summary>
     /// <param name="timeout">Timeout.</param>
