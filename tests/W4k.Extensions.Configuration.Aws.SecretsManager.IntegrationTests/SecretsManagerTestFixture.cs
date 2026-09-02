@@ -14,6 +14,8 @@ public static class SecretsManagerTestFixture
     public static string KeyValueSecretName { get; private set; } = "";
     public static string ComplexSecretName { get; private set; } = "";
     public static string BinarySecretName { get; private set; } = "";
+    public static string InvalidUtf8BinarySecretName { get; private set; } = "";
+    public static string PlainTextSecretName { get; private set; } = "";
 
     [Before(Assembly)]
     public static void OneTimeSetup()
@@ -36,6 +38,12 @@ public static class SecretsManagerTestFixture
         BinarySecretName = $"{TestSecrets.BinarySecretName}/{guid}";
         client.CreateBinarySecret(BinarySecretName, Encoding.UTF8.GetBytes(TestSecrets.BinarySecretValue)).GetAwaiter().GetResult();
 
+        InvalidUtf8BinarySecretName = $"{TestSecrets.InvalidUtf8BinarySecretName}/{guid}";
+        client.CreateBinarySecret(InvalidUtf8BinarySecretName, TestSecrets.InvalidUtf8BinarySecretValue).GetAwaiter().GetResult();
+
+        PlainTextSecretName = $"{TestSecrets.PlainTextSecretName}/{guid}";
+        client.CreateSecret(PlainTextSecretName, TestSecrets.PlainTextSecretValue).GetAwaiter().GetResult();
+
         SecretsManagerClient = client;
     }
 
@@ -47,6 +55,8 @@ public static class SecretsManagerTestFixture
         client.DeleteSecret(KeyValueSecretName).GetAwaiter().GetResult();
         client.DeleteSecret(ComplexSecretName).GetAwaiter().GetResult();
         client.DeleteSecret(BinarySecretName).GetAwaiter().GetResult();
+        client.DeleteSecret(InvalidUtf8BinarySecretName).GetAwaiter().GetResult();
+        client.DeleteSecret(PlainTextSecretName).GetAwaiter().GetResult();
 
         client.Dispose();
         SecretsManagerClient = null!;

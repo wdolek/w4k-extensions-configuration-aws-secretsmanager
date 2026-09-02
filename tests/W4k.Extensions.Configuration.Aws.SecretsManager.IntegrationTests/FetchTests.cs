@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.Extensions.Configuration;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager.IntegrationTests;
@@ -96,7 +97,75 @@ public class FetchTests
                 SecretsManagerTestFixture.BinarySecretName,
                 source => source
                     .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
-                    .WithProcessor(new PlainTextSecretProcessor()))
+                    .WithPlainTextProcessor("SecretKey"))
+            .Build();
+
+        var secrets = config.AsEnumerable().ToList();
+
+        // assert
+        await Assert.That(secrets).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    public async Task ThrowWhenBinarySecretIsNotValidUtf8()
+    {
+        // act & assert
+        var ex = await Assert.That(
+                () =>
+                {
+                    new ConfigurationBuilder()
+                        .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.InvalidUtf8BinarySecretName)
+                        .Build();
+                })
+            .ThrowsExactly<SecretRetrievalException>();
+
+        await Assert.That(ex!.InnerException).IsTypeOf<DecoderFallbackException>();
+    }
+
+    [Test]
+    public async Task FetchPlainTextSecretWithExplicitKey()
+    {
+        // arrange
+        var expected = new KeyValuePair<string, string?>[]
+        {
+            new("Clients", null),
+            new("Clients:MyService", null),
+            new("Clients:MyService:ApiKey", TestSecrets.PlainTextSecretValue),
+        };
+
+        // act
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(
+                SecretsManagerTestFixture.PlainTextSecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithConfigurationKeyPrefix("Clients:MyService")
+                    .WithPlainTextProcessor("ApiKey"))
+            .Build();
+
+        var secrets = config.AsEnumerable().ToList();
+
+        // assert
+        await Assert.That(secrets).IsEquivalentTo(expected);
+    }
+
+    [Test]
+    public async Task FetchPlainTextSecretUsingPrefixAsKey()
+    {
+        // arrange
+        var expected = new KeyValuePair<string, string?>[]
+        {
+            new("MyService", TestSecrets.PlainTextSecretValue),
+        };
+
+        // act
+        var config = new ConfigurationBuilder()
+            .AddSecretsManager(
+                SecretsManagerTestFixture.PlainTextSecretName,
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithConfigurationKeyPrefix("MyService")
+                    .WithPlainTextProcessor())
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -135,12 +204,6 @@ public class FetchTests
 
         // assert
         await Assert.That(secrets).IsEquivalentTo(expected);
-    }
-
-    private sealed class PlainTextSecretProcessor : ISecretProcessor
-    {
-        public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString) =>
-            new() { ["SecretKey"] = secretString };
     }
 
     private class TestKeyTransformer : IConfigurationKeyTransformer
