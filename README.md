@@ -312,7 +312,8 @@ public sealed class SecretsLoadedHealthCheck(IConfiguration configuration) : IHe
     }
 }
 
-builder.Services.AddHealthChecks()
+builder.Services
+    .AddHealthChecks()
     .AddCheck<SecretsLoadedHealthCheck>("aws-secrets-manager");
 ```
 

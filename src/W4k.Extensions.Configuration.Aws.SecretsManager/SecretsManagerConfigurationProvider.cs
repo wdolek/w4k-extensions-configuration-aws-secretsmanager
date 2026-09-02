@@ -56,8 +56,9 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         get
         {
             var utcTicks = Volatile.Read(ref _lastLoadedUtcTicks);
-
-            return utcTicks == 0 ? null : new DateTimeOffset(utcTicks, TimeSpan.Zero);
+            return utcTicks == 0
+                ? null
+                : new DateTimeOffset(utcTicks, TimeSpan.Zero);
         }
     }
 
