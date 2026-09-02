@@ -273,6 +273,56 @@ Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manage
 > [!IMPORTANT]
 > Watcher is started **ONLY** when initial load is successful.
 
+### Last load state
+
+`SecretsManagerConfigurationProvider` exposes state of the last successful load, which can be used
+to implement a health check or a readiness probe:
+
+- `CurrentVersionId` - version id of the last loaded secret, `null` when the secret has not been loaded yet,
+- `LastLoadedAt` - UTC timestamp of the last successful load, `null` when the secret has not been loaded yet.
+
+Both properties are updated on every successful load and reload. A skipped reload (secret version unchanged)
+does not update `LastLoadedAt`. Note that the properties live on the concrete provider type,
+not on `ISecretsManagerConfigurationProvider`.
+
+Example health check iterating registered providers (reusing the pattern shown in
+[Reusing application logger](#reusing-application-logger)):
+
+```csharp
+// requires Microsoft.Extensions.Diagnostics.HealthChecks
+public sealed class SecretsLoadedHealthCheck(IConfiguration configuration) : IHealthCheck
+{
+    public Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        if (configuration is not IConfigurationRoot root)
+        {
+            return Task.FromResult(HealthCheckResult.Healthy("No configuration root available"));
+        }
+
+        var providers = root.Providers.OfType<SecretsManagerConfigurationProvider>().ToList();
+        if (providers.Count == 0)
+        {
+            return Task.FromResult(HealthCheckResult.Healthy("No secrets configured"));
+        }
+
+        var notLoaded = providers.Where(p => p.LastLoadedAt is null).ToList();
+        if (notLoaded.Count > 0)
+        {
+            var names = string.Join(", ", notLoaded.Select(p => p.Source.SecretName));
+            return Task.FromResult(HealthCheckResult.Unhealthy($"Secrets never loaded: {names}"));
+        }
+
+        return Task.FromResult(HealthCheckResult.Healthy("All secrets loaded"));
+    }
+}
+
+builder.Services
+    .AddHealthChecks()
+    .AddCheck<SecretsLoadedHealthCheck>("aws-secrets-manager");
+```
+
 ### Preventing hangs
 
 It may happen that there's connection issue with AWS Secrets Manager. In order to prevent unnecessary hangs,
