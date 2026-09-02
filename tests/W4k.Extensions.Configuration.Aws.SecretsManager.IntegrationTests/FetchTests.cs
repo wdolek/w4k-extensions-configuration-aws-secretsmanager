@@ -128,6 +128,8 @@ public class FetchTests
         // arrange
         var expected = new KeyValuePair<string, string?>[]
         {
+            new("Clients", null),
+            new("Clients:MyService", null),
             new("Clients:MyService:ApiKey", TestSecrets.PlainTextSecretValue),
         };
 
