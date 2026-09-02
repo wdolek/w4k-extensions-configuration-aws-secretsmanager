@@ -54,7 +54,7 @@ API before committing.
 
 ## D2. Document binary secret support honestly
 
-**Status:** open · **Effort:** XS
+**Status:** done · **Effort:** XS
 **Depends on:** [C1](correctness.md#c1-binary-secrets-are-base64-decoded-twice)
 
 ### Why

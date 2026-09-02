@@ -156,6 +156,12 @@ When binding your option type, make sure path is considered or that you bind to 
 By default, AWS Secrets Manager stores secret as simple key-value JSON object - and thus JSON processor is set as default.
 In some cases, custom format may be used - either a complex JSON object or even an XML document (or actually anything, imagination is the limit).
 
+> [!NOTE]
+> Secrets stored as binary data (`SecretBinary`) are decoded as UTF-8 and then handed to the configured
+> processor, exactly like `SecretString` - the configured processor sees a string either way.
+> Payloads that are not valid UTF-8 (certificates, signing keys, ...) may be corrupted by this decode,
+> as the raw bytes cannot travel through the configuration pipeline.
+
 A secret holding a single plain value - a password, an API key, a connection string - is a common pattern as well.
 Use `PlainTextSecretProcessor` to place the whole secret string under a single configuration key:
 
