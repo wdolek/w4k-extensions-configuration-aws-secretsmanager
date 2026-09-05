@@ -26,9 +26,9 @@ var builder = WebApplication.CreateBuilder(args);
 // add AWS Secrets Manager Configuration Provider for specific secret
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    configurationKeyPrefix: "AppSecrets");
+    source => source.WithConfigurationKeyPrefix("AppSecrets"));
 
-// ... and then bind configuration using `configurationKeyPrefix: "AppSecrets"`
+// ... and then bind configuration using key prefix "AppSecrets"
 builder.Services
     .AddOptions<Secrets>()
     .BindConfiguration("AppSecrets");
@@ -40,9 +40,10 @@ Additionally, you can provide instance of `IAmazonSecretsManager`:
 // passing custom `IAmazonSecretsManager` (e.g. with custom credentials)
 var client = new AmazonSecretsManagerClient(/* ... */);
 builder.Configuration.AddSecretsManager(
-    client,
     "my-secret-secrets",
-    configurationKeyPrefix: "AppSecrets");
+    source => source
+        .WithSecretsManager(client)
+        .WithConfigurationKeyPrefix("AppSecrets"));
 ```
 
 To add more secrets while sharing the same Amazon Secrets Manager client, you can set a default instance first like this:
@@ -56,10 +57,15 @@ builder.Configuration.SetSecretsManagerClient(client)
 
 ## Configuration
 
-Configuration is possible using several `AddSecretsManager` overloads. Shortcut methods for adding Secrets Manager
-configuration source allows to specify secret name, optionality or configuration key prefix.
+Configuration is possible using `AddSecretsManager` overloads. The simplest overload takes just the secret name,
+anything more complex is configured using `AddSecretsManager` method with configure callback.
 
-Specifying more complex configuration can be done using `AddSecretsManager` method with configure callback.
+> [!NOTE]
+> The package also exposes shortcut overloads with positional `IAmazonSecretsManager` and/or
+> `configurationKeyPrefix` parameters, for example `AddSecretsManager(client, "my-secret-secrets")` or
+> `AddSecretsManager("my-secret-secrets", "AppSecrets")`. These overloads are deprecated (`W4KSM0001`) and
+> will be removed in a future major version - use `WithSecretsManager` and `WithConfigurationKeyPrefix`
+> as shown above instead.
 
 ### Accessing existing configuration
 
@@ -98,7 +104,7 @@ builder.Configuration.AddSecretsManager(
 ```
 
 > [!NOTE]
-> Older versions of the package exposed `isOptional` parameters, for example
+> The package also exposes `isOptional` parameters, for example
 > `AddSecretsManager("my-secret-secrets", isOptional: true)`. These overloads are deprecated
 > (`W4KSM0001`) and will be removed in a future major version - use `OnLoadException` as shown above.
 
@@ -152,7 +158,7 @@ or to group secret values for further binding, it is possible to specify configu
 ```csharp
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    configurationKeyPrefix: "Clients:MyService");
+    source => source.WithConfigurationKeyPrefix("Clients:MyService"));
 ```
 
 With example above, secret property of name `Password` will be transformed to `Clients:MyService:Password`.

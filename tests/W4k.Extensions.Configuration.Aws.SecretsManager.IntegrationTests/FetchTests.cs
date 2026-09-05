@@ -19,7 +19,9 @@ public class FetchTests
 
         // act
         var config = new ConfigurationBuilder()
-            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.KeyValueSecretName)
+            .AddSecretsManager(
+                SecretsManagerTestFixture.KeyValueSecretName,
+                source => source.WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -44,9 +46,10 @@ public class FetchTests
         // act
         var config = new ConfigurationBuilder()
             .AddSecretsManager(
-                SecretsManagerTestFixture.SecretsManagerClient,
                 SecretsManagerTestFixture.KeyValueSecretName,
-                configurationKeyPrefix: "App:Secrets")
+                source => source
+                    .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                    .WithConfigurationKeyPrefix("App:Secrets"))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();
@@ -114,7 +117,9 @@ public class FetchTests
                 () =>
                 {
                     new ConfigurationBuilder()
-                        .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.InvalidUtf8BinarySecretName)
+                        .AddSecretsManager(
+                            SecretsManagerTestFixture.InvalidUtf8BinarySecretName,
+                            source => source.WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient))
                         .Build();
                 })
             .ThrowsExactly<SecretRetrievalException>();
@@ -199,7 +204,9 @@ public class FetchTests
 
         // act
         var config = new ConfigurationBuilder()
-            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.ComplexSecretName)
+            .AddSecretsManager(
+                SecretsManagerTestFixture.ComplexSecretName,
+                source => source.WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();

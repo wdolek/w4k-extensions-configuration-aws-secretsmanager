@@ -11,8 +11,12 @@ public class FetchMultipleTests
     {
         // act
         var config = new ConfigurationBuilder()
-            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.KeyValueSecretName)
-            .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, SecretsManagerTestFixture.ComplexSecretName)
+            .AddSecretsManager(
+                SecretsManagerTestFixture.KeyValueSecretName,
+                source => source.WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient))
+            .AddSecretsManager(
+                SecretsManagerTestFixture.ComplexSecretName,
+                source => source.WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient))
             .Build();
 
         var secrets = config.AsEnumerable().ToList();

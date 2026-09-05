@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Amazon.SecretsManager;
 using Microsoft.Extensions.Configuration;
 
@@ -146,6 +146,10 @@ public static class ConfigurationBuilderExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationKeyPrefix"/> is <see langword="null"/>.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.WithConfigurationKeyPrefix(configurationKeyPrefix)) instead.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#configuration-key-prefix")]
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         string secretName,
@@ -216,6 +220,10 @@ public static class ConfigurationBuilderExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretsManager"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.WithSecretsManager(secretsManager)) instead - or SetSecretsManagerClient to share a default client.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#usage")]
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         IAmazonSecretsManager secretsManager,
@@ -237,6 +245,10 @@ public static class ConfigurationBuilderExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretsManager"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationKeyPrefix"/> is <see langword="null"/>.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.WithSecretsManager(secretsManager).WithConfigurationKeyPrefix(configurationKeyPrefix)) instead.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#configuration-key-prefix")]
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         IAmazonSecretsManager secretsManager,
