@@ -87,16 +87,23 @@ assuming your `appsettings.json` contains:
 ### Optional secret
 
 When adding a configuration source, given secret is mandatory by default - meaning if the secret is not found, or it's not possible 
-to fetch it, an exception is thrown. To make it optional, set `isOptional` parameter to `true`:
+to fetch it, an exception is thrown. To make it optional, set `Ignore` in the `OnLoadException` and `OnReloadException` callbacks:
 
 ```csharp
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    isOptional: true);
+    source => source
+            .OnLoadException(ctx => ctx.Ignore = true)
+            .OnReloadException(ctx => ctx.Ignore = true));
 ```
 
+> [!NOTE]
+> Older versions of the package exposed `isOptional` parameters, for example
+> `AddSecretsManager("my-secret-secrets", isOptional: true)`. These overloads are deprecated
+> (`W4KSM0001`) and will be removed in a future major version - use `OnLoadException` as shown above.
+
 > [!WARNING]
-> `isOptional: true` ignores *all* exceptions during load and reload, not just "secret not found".
+> Setting `Ignore = true` ignores *all* exceptions during load and reload, not just "secret not found".
 > A malformed secret payload, a throttled request, or a missing IAM permission is ignored as well, and
 > the application starts (or keeps running) with the secret's configuration absent - which typically
 > surfaces later as an options validation failure, or as a `null` at first use.
