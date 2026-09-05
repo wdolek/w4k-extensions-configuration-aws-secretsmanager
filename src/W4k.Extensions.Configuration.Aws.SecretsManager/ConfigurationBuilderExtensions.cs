@@ -167,6 +167,10 @@ public static class ConfigurationBuilderExtensions
     /// <returns>The <see cref="IConfigurationBuilder"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.OnLoadException(ctx => ctx.Ignore = true).OnReloadException(ctx => ctx.Ignore = true)) instead.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#optional-secret")]
     public static IConfigurationBuilder AddSecretsManager(this IConfigurationBuilder builder, string secretName, bool isOptional) =>
         builder.AddSecretsManagerImpl(secretsManager: null!, secretName, configurationKeyPrefix: null, isOptional);
 
@@ -184,6 +188,10 @@ public static class ConfigurationBuilderExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationKeyPrefix"/> is <see langword="null"/>.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.WithConfigurationKeyPrefix(configurationKeyPrefix).OnLoadException(ctx => ctx.Ignore = true).OnReloadException(ctx => ctx.Ignore = true)) instead.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#optional-secret")]
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         string secretName,
@@ -251,6 +259,10 @@ public static class ConfigurationBuilderExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="builder"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretsManager"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.WithSecretsManager(secretsManager).OnLoadException(ctx => ctx.Ignore = true).OnReloadException(ctx => ctx.Ignore = true)) instead.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#optional-secret")]
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         IAmazonSecretsManager secretsManager,
@@ -274,6 +286,10 @@ public static class ConfigurationBuilderExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="secretsManager"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationKeyPrefix"/> is <see langword="null"/>.</exception>
+    [Obsolete(
+        "Use AddSecretsManager(secretName, source => source.WithSecretsManager(secretsManager).WithConfigurationKeyPrefix(configurationKeyPrefix).OnLoadException(ctx => ctx.Ignore = true).OnReloadException(ctx => ctx.Ignore = true)) instead.",
+        DiagnosticId = "W4KSM0001",
+        UrlFormat = "https://github.com/wdolek/w4k-extensions-configuration-aws-secretsmanager#optional-secret")]
     public static IConfigurationBuilder AddSecretsManager(
         this IConfigurationBuilder builder,
         IAmazonSecretsManager secretsManager,

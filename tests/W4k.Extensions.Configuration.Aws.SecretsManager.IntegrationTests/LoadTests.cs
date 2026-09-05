@@ -30,9 +30,11 @@ public class LoadTests
                 {
                     config = new ConfigurationBuilder()
                         .AddSecretsManager(
-                            SecretsManagerTestFixture.SecretsManagerClient,
                             "w4k/awssm/unknown-secret-optional",
-                            isOptional: true)
+                            source => source
+                                .WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient)
+                                .OnLoadException(ctx => ctx.Ignore = true)
+                                .OnReloadException(ctx => ctx.Ignore = true))
                         .Build();
                 })
             .ThrowsNothing();

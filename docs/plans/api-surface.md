@@ -59,7 +59,7 @@ exception carries `SecretName` and that the message contains it.
 
 ## A2. Deprecate the `bool isOptional` overloads
 
-**Status:** open · **Breaking:** no (obsoletion only) · **Effort:** S
+**Status:** done · **Breaking:** no (obsoletion only) · **Effort:** S
 
 ### Why
 
@@ -290,3 +290,63 @@ folds into it.
 
 `tests/.../KeyDelimiterTransformerShould.cs` or provider tests — assert that
 adding a transformer after `Build()` does not affect a subsequent reload.
+
+---
+
+## A6. Collapse the convenience overloads into the fluent builder
+
+**Status:** open · **Breaking:** yes (removal) / no (obsoletion) · **Tag:** `v3`
+**Effort:** S · **Depends on:** A2 (obsoletion cadence precedent)
+
+### Why
+
+`ConfigurationBuilderExtensions` keeps seven `AddSecretsManager` overloads.
+Three of the "simple" ones are fully expressible through the single
+builder-callback overload — `WithSecretsManager`, `WithConfigurationKeyPrefix`
+and `WithVersion` cover everything the positional parameters do:
+
+| Overload | Fluent equivalent |
+| --- | --- |
+| `(builder, name, prefix)` | `AddSecretsManager(name, source => source.WithConfigurationKeyPrefix(prefix))` |
+| `(builder, client, name)` | `AddSecretsManager(name, source => source.WithSecretsManager(client))` — or `SetSecretsManagerClient` for a default client |
+| `(builder, client, name, prefix)` | `AddSecretsManager(name, source => source.WithSecretsManager(client).WithConfigurationKeyPrefix(prefix))` |
+
+This is the same combinatorial pressure that produced the four `bool
+isOptional` overloads deprecated in A2: every new axis (client, prefix,
+version, optionality) multiplies positional overloads. The client overloads
+also duplicate `SetSecretsManagerClient`, and there is no
+`(client, name, configureSource)` variant — a gap that only exists because the
+fluent form already covers it.
+
+### Where
+
+`src/.../ConfigurationBuilderExtensions.cs`
+
+### Change
+
+**Keep** (4):
+
+- `AddSecretsManager(IConfigurationBuilder, Action<SecretsManagerConfigurationSource>)` — raw escape hatch
+- `AddSecretsManager(IConfigurationBuilder, string, Action<SecretsManagerConfigurationBuilder>)` — the core overload
+- `AddSecretsManager(IConfigurationManager, string, Action<IConfiguration, SecretsManagerConfigurationBuilder>)`
+- `AddSecretsManager(IConfigurationBuilder, string)` — trivial mandatory case
+
+**Obsolete** the three overloads above with `DiagnosticId = "W4KSM0002"`,
+following the A2 pattern (message with the exact fluent equivalent, `UrlFormat`
+to the relevant README section, `NoWarn` in test projects that keep coverage).
+
+**Remove** in 5.0 at the earliest — one major later than A2's removal, so
+consumers never face two migration waves in consecutive majors. Removal needs
+either a major bump or `CompatibilitySuppressions.xml`; see the versioning
+notes in [README.md](README.md).
+
+### Tests
+
+Existing overload tests keep running under `NoWarn` while obsolete. At removal
+time, delete their tests and the `NoWarn` entries.
+
+### Risk
+
+Breaking for consumers using positional prefix/client parameters. Migration
+is mechanical (table above), and A2's deprecation messages already trained the
+fluent shape. Obsoletion itself is compatible and needs no suppression file.
