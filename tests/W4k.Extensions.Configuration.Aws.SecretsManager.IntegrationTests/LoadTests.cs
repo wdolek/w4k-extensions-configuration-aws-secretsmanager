@@ -14,7 +14,9 @@ public class LoadTests
                 () =>
                 {
                     new ConfigurationBuilder()
-                        .AddSecretsManager(SecretsManagerTestFixture.SecretsManagerClient, "w4k/awssm/unknown-secret-mandatory")
+                        .AddSecretsManager(
+                            "w4k/awssm/unknown-secret-mandatory",
+                            source => source.WithSecretsManager(SecretsManagerTestFixture.SecretsManagerClient))
                         .Build();
                 })
             .ThrowsExactly<SecretRetrievalException>();

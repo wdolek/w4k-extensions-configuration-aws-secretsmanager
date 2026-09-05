@@ -295,7 +295,7 @@ adding a transformer after `Build()` does not affect a subsequent reload.
 
 ## A6. Collapse the convenience overloads into the fluent builder
 
-**Status:** open · **Breaking:** yes (removal) / no (obsoletion) · **Tag:** `v3`
+**Status:** partially done (obsoletion shipped in 2.x; removal pending) · **Breaking:** yes (removal) / no (obsoletion) · **Tag:** `v3` (removal only)
 **Effort:** S · **Depends on:** A2 (obsoletion cadence precedent)
 
 ### Why
@@ -331,19 +331,29 @@ fluent form already covers it.
 - `AddSecretsManager(IConfigurationManager, string, Action<IConfiguration, SecretsManagerConfigurationBuilder>)`
 - `AddSecretsManager(IConfigurationBuilder, string)` — trivial mandatory case
 
-**Obsolete** the three overloads above with `DiagnosticId = "W4KSM0002"`,
+**Obsolete** the three overloads above with `DiagnosticId = "W4KSM0001"`,
 following the A2 pattern (message with the exact fluent equivalent, `UrlFormat`
-to the relevant README section, `NoWarn` in test projects that keep coverage).
+to the relevant README section). A6 reuses A2's diagnostic id rather than
+minting a new one: both deprecation waves ship in the same 2.x release and
+remove in the same major, so a second id would only give consumers a way to
+suppress one wave while ignoring the other they also have to migrate.
 
-**Remove** in 5.0 at the earliest — one major later than A2's removal, so
-consumers never face two migration waves in consecutive majors. Removal needs
-either a major bump or `CompatibilitySuppressions.xml`; see the versioning
-notes in [README.md](README.md).
+*Done in 2.x:* obsoletion is a compatible change (same reasoning as A2), so the
+`v3` tag applies only to the removal. Because A2 and A6 are now obsoleted in
+the same major, both can be removed together in 4.0 at the earliest - a single
+migration wave instead of two.
+
+**Remove** in 4.0 at the earliest - together with A2's overloads, so consumers
+face a single migration wave. Removal needs either a major bump or
+`CompatibilitySuppressions.xml`; see the versioning notes in
+[README.md](README.md).
 
 ### Tests
 
-Existing overload tests keep running under `NoWarn` while obsolete. At removal
-time, delete their tests and the `NoWarn` entries.
+Tests in this repo use the fluent API only - no `NoWarn` needed. The
+obsolete overloads merely delegate to the same implementation the fluent
+path exercises, so they get no dedicated coverage; delete what remains
+of them at removal time.
 
 ### Risk
 
