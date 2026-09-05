@@ -60,13 +60,6 @@ builder.Configuration.SetSecretsManagerClient(client)
 Configuration is possible using `AddSecretsManager` overloads. The simplest overload takes just the secret name,
 anything more complex is configured using `AddSecretsManager` method with configure callback.
 
-> [!NOTE]
-> The package also exposes shortcut overloads with positional `IAmazonSecretsManager` and/or
-> `configurationKeyPrefix` parameters, for example `AddSecretsManager(client, "my-secret-secrets")` or
-> `AddSecretsManager("my-secret-secrets", "AppSecrets")`. These overloads are deprecated (`W4KSM0001`) and
-> will be removed in a future major version - use `WithSecretsManager` and `WithConfigurationKeyPrefix`
-> as shown above instead.
-
 ### Accessing existing configuration
 
 When using secrets manager configuration builder, it's also possible to access existing (already loaded) configuration:
@@ -102,11 +95,6 @@ builder.Configuration.AddSecretsManager(
             .OnLoadException(ctx => ctx.Ignore = true)
             .OnReloadException(ctx => ctx.Ignore = true));
 ```
-
-> [!NOTE]
-> The package also exposes `isOptional` parameters, for example
-> `AddSecretsManager("my-secret-secrets", isOptional: true)`. These overloads are deprecated
-> (`W4KSM0001`) and will be removed in a future major version - use `OnLoadException` as shown above.
 
 > [!WARNING]
 > Setting `Ignore = true` ignores *all* exceptions during load and reload, not just "secret not found".
