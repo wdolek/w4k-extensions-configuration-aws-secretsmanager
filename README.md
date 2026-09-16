@@ -448,6 +448,11 @@ This library is inspired by `Kralizek.Extensions.Configuration.AWSSecretsManager
 
 ## Alternative approaches
 
+The closest alternative is the official [Amazon.Extensions.Configuration.SystemsManager](https://www.nuget.org/packages/Amazon.Extensions.Configuration.SystemsManager/) package.
+AWS Systems Manager Parameter Store is integrated with Secrets Manager, so referencing a secret using the `/aws/reference/secretsmanager/` path
+(e.g. `builder.AddSystemsManager("/aws/reference/secretsmanager/my-secret")`) loads it into `IConfiguration`, parsing its JSON key/value pairs, with support for reloading.
+This is described in [Referencing AWS Secrets Manager secrets from Parameter Store parameters](https://docs.aws.amazon.com/systems-manager/latest/userguide/integration-ps-secretsmanager.html), including restrictions of this approach.
+
 When using AWS Fargate (ECS), you can configure Task Definition to use Secrets Manager as a source of environment variables.
 This approach is described in [Passing sensitive data to a container / Using Secrets Manager](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html).
 
