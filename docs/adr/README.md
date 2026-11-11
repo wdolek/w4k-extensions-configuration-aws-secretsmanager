@@ -3,7 +3,7 @@
 This directory records the significant design decisions behind
 `W4k.Extensions.Configuration.Aws.SecretsManager`.
 
-Records are written retrospectively, based on the current implementation (v2.x),
+Records are written retrospectively, based on the current implementation (v3.x),
 and describe _why_ things are the way they are.
 
 ## Guiding principles
@@ -39,6 +39,7 @@ Three constraints shape almost every decision in this library:
 | [0015](0015-built-in-plain-text-secret-processor.md) | Built-in plain text secret processor | Accepted |
 | [0016](0016-do-not-tag-secrets-with-their-arn.md) | Do not tag secrets with their ARN | Accepted |
 | [0017](0017-binary-secret-decode-failures-omit-the-payload.md) | Binary secret decode failures omit the payload | Accepted |
+| [0018](0018-target-frameworks-v3.md) | Target frameworks for v3: net10.0 and net11.0 | Accepted |
 
 ## Format
 

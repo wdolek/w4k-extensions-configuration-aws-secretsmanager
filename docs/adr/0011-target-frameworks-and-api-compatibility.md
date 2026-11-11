@@ -52,3 +52,11 @@ supporting runtimes that are out of support anyway.
   compile-verified but not test-verified; the `#if` branches are the risk area.
 - Trimming/AOT annotations (`IsTrimmable`, `IsAotCompatible`) are not set,
   mainly because the AWS SDK is not trim-friendly. Revisit if that changes.
+
+> **Amendment (see [ADR-0018](0018-target-frameworks-v3.md)):** with .NET 8
+> and .NET 9 out of support, the target list is now `net10.0`, `net11.0`,
+> and the package ships as 3.0.0 — dropping TFMs being the major-version
+> trigger this ADR itself prescribes. The compatibility baseline was raised
+> to `2.4.0` (the last 2.x release) accordingly, and the one TFM divergence
+> mentioned above (`Activity.AddException` behind `#if NET9_0_OR_GREATER`)
+> no longer exists.
