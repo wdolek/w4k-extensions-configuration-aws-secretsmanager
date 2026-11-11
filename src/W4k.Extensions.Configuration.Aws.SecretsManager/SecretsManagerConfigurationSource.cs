@@ -13,7 +13,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 [SuppressMessage("ReSharper", "RedundantNullableFlowAttribute", Justification = "Consumers of library may not have nullable reference types enabled.")]
 public sealed class SecretsManagerConfigurationSource : IConfigurationSource
 {
-    private TimeSpan _timeout = TimeSpan.FromSeconds(30);
     private bool _built;
 
     /// <summary>
@@ -80,13 +79,13 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// <exception cref="ArgumentOutOfRangeException">Thrown when value is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public TimeSpan Timeout
     {
-        get => _timeout;
+        get => field;
         set
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
-            _timeout = value;
+            field = value;
         }
-    }
+    } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Gets or sets action to be executed when exception occurs during loading secret.

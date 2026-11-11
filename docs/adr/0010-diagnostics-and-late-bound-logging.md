@@ -75,3 +75,9 @@ value.
   mutable state, and the only supported way to retrofit logging.
 - The `ActivitySource` version string must be kept in step with the package
   version.
+
+> **Amendment (see [ADR-0018](0018-target-frameworks-v3.md)):** with the
+> `net8.0` target removed, the TFM-conditional exception recording decided
+> above no longer exists — `Activity.AddException` is used unconditionally
+> and the hand-rolled OTel-conventional `ActivityEvent` fallback
+> (`ExceptionExtensions.ToActivityEvent`) was deleted.
