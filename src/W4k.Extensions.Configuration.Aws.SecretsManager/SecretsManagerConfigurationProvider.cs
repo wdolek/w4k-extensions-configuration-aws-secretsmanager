@@ -107,15 +107,9 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         {
             MeterDescriptors.LoadFailures.Add(1, secretIdTag);
 
-#if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
                 .SetStatus(ActivityStatusCode.Error, "Error loading secret");
-#else
-            activity?
-                .AddEvent(ex.ToActivityEvent())
-                .SetStatus(ActivityStatusCode.Error, "Error loading secret");
-#endif
 
             logger.FailedToLoadSecret(ex, secretName);
             HandleException(ex, Source.OnLoadException);
@@ -181,15 +175,9 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         {
             MeterDescriptors.ReloadFailures.Add(1, secretIdTag);
 
-#if NET9_0_OR_GREATER
             activity?
                 .AddException(ex)
                 .SetStatus(ActivityStatusCode.Error, "Error reloading secret");
-#else
-            activity?
-                .AddEvent(ex.ToActivityEvent())
-                .SetStatus(ActivityStatusCode.Error, "Error reloading secret");
-#endif
 
             logger.FailedToRefreshSecret(ex, secretName);
             HandleException(ex, Source.OnReloadException);
