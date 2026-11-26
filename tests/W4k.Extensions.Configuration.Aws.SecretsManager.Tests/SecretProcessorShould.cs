@@ -163,4 +163,13 @@ public class SecretProcessorShould
         // assert
         await Assert.That(data.Values.Single()).IsEqualTo("le_value\n");
     }
+
+    [Test]
+    public async Task ThrowWhenProcessorArgumentsAreNull()
+    {
+        await Assert.That(() => SecretsProcessor.Json.GetConfigurationData(null!, "{}")).ThrowsExactly<ArgumentNullException>();
+        await Assert.That(() => SecretsProcessor.Json.GetConfigurationData(ConfigSource, null!)).ThrowsExactly<ArgumentNullException>();
+        await Assert.That(() => SecretsProcessor.PlainText.GetConfigurationData(null!, "value")).ThrowsExactly<ArgumentNullException>();
+        await Assert.That(() => SecretsProcessor.PlainText.GetConfigurationData(ConfigSource, null!)).ThrowsExactly<ArgumentNullException>();
+    }
 }

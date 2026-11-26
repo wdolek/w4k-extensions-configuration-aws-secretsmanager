@@ -83,10 +83,13 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="provider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when watcher is disposed.</exception>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
     public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
+        ArgumentNullException.ThrowIfNull(provider);
+
         lock (_lock)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);

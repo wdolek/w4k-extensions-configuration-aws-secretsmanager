@@ -53,6 +53,9 @@ public class SecretProcessor<T> : ISecretProcessor
     /// <inheritdoc/>
     public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString)
     {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(secretString);
+
         if (!_parser.TryParse(secretString, out var secretValue))
         {
             throw new FormatException(
@@ -123,6 +126,9 @@ public sealed class PlainTextSecretProcessor : ISecretProcessor
     /// <inheritdoc/>
     public Dictionary<string, string?> GetConfigurationData(SecretsManagerConfigurationSource source, string secretString)
     {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(secretString);
+
         var key = _configurationKey is null
             ? source.ConfigurationKeyPrefix
             : ComposeKey(source.ConfigurationKeyPrefix, _configurationKey);

@@ -226,6 +226,136 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(replacement.StopCalls).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task DisposePreviousPollingWatcherWhenReplacedByConfigurationWatcher()
+    {
+        // arrange
+        var customWatcher = new RecordingWatcher();
+        var builder = new SecretsManagerConfigurationBuilder(NewSecretName())
+            .WithSecretsManager(ConstantClient(FirstSecret))
+            .WithPollingWatcher(Interval, new FakeTimeProvider());
+
+        var pollingWatcher = builder.Build().ConfigurationWatcher as SecretsManagerPollingWatcher;
+        await Assert.That(pollingWatcher).IsNotNull();
+
+        // act
+        var source = builder.WithConfigurationWatcher(customWatcher).Build();
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // assert: overwritten library-owned watcher was already disposed before provider start/disposal
+        await Assert.That(() => pollingWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+
+        provider.Load();
+        provider.Dispose();
+
+        await Assert.That(customWatcher.StartCalls).IsEqualTo(1);
+        await Assert.That(customWatcher.StopCalls).IsEqualTo(1);
+        await Assert.That(customWatcher.DisposeCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task DisposePreviousPollingWatcherWhenReplacedByAnotherPollingWatcher()
+    {
+        // arrange
+        var builder = new SecretsManagerConfigurationBuilder(NewSecretName())
+            .WithSecretsManager(ConstantClient(FirstSecret))
+            .WithPollingWatcher(Interval, new FakeTimeProvider());
+
+        var firstWatcher = builder.Build().ConfigurationWatcher as SecretsManagerPollingWatcher;
+        await Assert.That(firstWatcher).IsNotNull();
+
+        // act
+        var source = builder.WithPollingWatcher(Interval * 2, new FakeTimeProvider()).Build();
+        var secondWatcher = source.ConfigurationWatcher as SecretsManagerPollingWatcher;
+        await Assert.That(secondWatcher).IsNotNull();
+        await Assert.That(ReferenceEquals(firstWatcher, secondWatcher)).IsFalse();
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // assert: first watcher disposed on overwrite, second stays alive until provider disposes
+        await Assert.That(() => firstWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+
+        provider.Load();
+        provider.Dispose();
+
+        await Assert.That(() => secondWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+    }
+
+    [Test]
+    public async Task DisposePreviousPollingWatcherWhenClearedViaPropertyBeforeProviderCreated()
+    {
+        // arrange
+        var source = new SecretsManagerConfigurationBuilder(NewSecretName())
+            .WithSecretsManager(ConstantClient(FirstSecret))
+            .WithPollingWatcher(Interval, new FakeTimeProvider())
+            .Build();
+
+        var pollingWatcher = source.ConfigurationWatcher as SecretsManagerPollingWatcher;
+        await Assert.That(pollingWatcher).IsNotNull();
+
+        // act
+        source.ConfigurationWatcher = null;
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        // assert
+        await Assert.That(() => pollingWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+    }
+
+    [Test]
+    public async Task NotDisposePollingWatcherWhenSourceWatcherIsReplacedAfterProviderIsCreated()
+    {
+        // arrange
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var client = ConstantClient(FirstSecret);
+        var replacement = new RecordingWatcher();
+
+        var source = new SecretsManagerConfigurationBuilder(NewSecretName())
+            .WithSecretsManager(client)
+            .WithPollingWatcher(Interval, time)
+            .Build();
+
+        var pollingWatcher = source.ConfigurationWatcher as SecretsManagerPollingWatcher;
+        await Assert.That(pollingWatcher).IsNotNull();
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+        provider.Load();
+
+        // act: replacing source.ConfigurationWatcher after provider creation must not dispose the active watcher
+        source.ConfigurationWatcher = replacement;
+
+        time.Advance(Interval + TimeSpan.FromSeconds(1));
+        await Assert.That(client.Calls).IsEqualTo(2);
+
+        provider.Dispose();
+
+        // assert
+        await Assert.That(() => pollingWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+        await Assert.That(replacement.StartCalls).IsEqualTo(0);
+        await Assert.That(replacement.StopCalls).IsEqualTo(0);
+        await Assert.That(replacement.DisposeCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task NotDisposeSameWatcherWhenOwnershipFlipsToCaller()
+    {
+        // arrange
+        var watcher = new RecordingWatcher();
+        var source = NewSource(ConstantClient(FirstSecret));
+        source.SetConfigurationWatcher(watcher, isOwned: true);
+
+        // act: assigning the same instance flips ownership without disposing it
+        source.ConfigurationWatcher = watcher;
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+        provider.Load();
+        provider.Dispose();
+
+        // assert
+        await Assert.That(watcher.StartCalls).IsEqualTo(1);
+        await Assert.That(watcher.StopCalls).IsEqualTo(1);
+        await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
+    }
+
     #endregion
 
     #region Watcher lifecycle

@@ -44,13 +44,34 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// Initializes a new instance of the <see cref="SecretsManagerConfigurationProvider"/> class.
     /// </summary>
     /// <param name="source">The <see cref="SecretsManagerConfigurationSource"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when required properties on <paramref name="source"/> are not set.</exception>
     public SecretsManagerConfigurationProvider(SecretsManagerConfigurationSource source)
     {
         ArgumentNullException.ThrowIfNull(source);
 
+        if (string.IsNullOrWhiteSpace(source.SecretName))
+        {
+            throw new InvalidOperationException("Secret name must be provided.");
+        }
+
+        if (source.SecretsManager is null)
+        {
+            throw new InvalidOperationException("Secrets manager client must be provided.");
+        }
+
+        if (source.Processor is null)
+        {
+            throw new InvalidOperationException("Secret processor must be provided.");
+        }
+
+        if (source.LoggerFactory is null)
+        {
+            throw new InvalidOperationException("Logger factory must be provided.");
+        }
+
         _secretFetcher = new SecretFetcher(source.SecretsManager);
-        _watcher = source.ConfigurationWatcher;
-        _ownsWatcher = source.OwnsConfigurationWatcher;
+        _watcher = source.CaptureConfigurationWatcher(out _ownsWatcher);
         Source = source;
     }
 

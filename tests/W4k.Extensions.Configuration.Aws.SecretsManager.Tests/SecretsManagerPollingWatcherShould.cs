@@ -22,6 +22,16 @@ public class SecretsManagerPollingWatcherShould
     }
 
     [Test]
+    public async Task ThrowWhenStartedWithNullProvider()
+    {
+        // arrange
+        var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
+
+        // act & assert
+        await Assert.That(() => watcher.StartWatching(null!)).ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
     public async Task ExecuteReloadAfterInterval()
     {
         // arrange
