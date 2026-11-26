@@ -71,7 +71,32 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// <summary>
     /// Gets or sets configuration change watcher.
     /// </summary>
-    public IConfigurationWatcher? ConfigurationWatcher { get; set; }
+    /// <remarks>
+    /// A watcher assigned here is owned by the caller: the provider stops it when it is disposed,
+    /// but does not dispose it. The watcher is captured when the provider is created,
+    /// changing this property afterwards has no effect on an existing provider.
+    /// </remarks>
+    public IConfigurationWatcher? ConfigurationWatcher
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OwnsConfigurationWatcher = false;
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <see cref="ConfigurationWatcher"/> has been created by the library
+    /// and is therefore disposed together with the provider.
+    /// </summary>
+    internal bool OwnsConfigurationWatcher { get; private set; }
+
+    internal void SetOwnedConfigurationWatcher(IConfigurationWatcher watcher)
+    {
+        ConfigurationWatcher = watcher;
+        OwnsConfigurationWatcher = true;
+    }
 
     /// <summary>
     /// The timeout for the secret fetch operation.
@@ -302,7 +327,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval);
+        _source.SetOwnedConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval));
         return this;
     }
 
@@ -316,7 +341,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeProvider timeProvider)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, timeProvider);
+        _source.SetOwnedConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval, timeProvider));
         return this;
     }
 
@@ -329,7 +354,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter);
+        _source.SetOwnedConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval, maxJitter));
         return this;
     }
 
@@ -344,7 +369,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter, TimeProvider timeProvider)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider);
+        _source.SetOwnedConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider));
         return this;
     }
 

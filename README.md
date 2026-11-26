@@ -274,6 +274,21 @@ Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manage
 > [!IMPORTANT]
 > Watcher is started **ONLY** when initial load is successful.
 
+#### Lifetime
+
+Disposing the configuration root (or the host owning it) disposes the provider, which stops the watcher and cancels a secret fetch in progress.
+Once disposed, the provider does not refresh anymore: `Reload()` is a no-op, `Load()` throws `ObjectDisposedException`.
+
+Who disposes the watcher itself depends on who created it:
+
+| Watcher set via                 | Owner   | On disposal           |
+|---------------------------------|---------|-----------------------|
+| `WithPollingWatcher(...)`       | library | stopped and disposed  |
+| `WithConfigurationWatcher(...)` | caller  | stopped, not disposed |
+| `ConfigurationWatcher` property | caller  | stopped, not disposed |
+
+The watcher is captured when the provider is created, changing `ConfigurationWatcher` afterwards has no effect.
+
 ### Last load state
 
 `SecretsManagerConfigurationProvider` exposes state of the last successful load, which can be used

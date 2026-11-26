@@ -11,7 +11,11 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     private readonly TimeSpan _maxJitter;
     private readonly TimeProvider _clock;
 
+    private readonly Lock _lock = new();
+
+    // _timer and _disposed are only read or written under _lock
     private ITimer? _timer;
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
@@ -66,37 +70,46 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     }
 
     /// <inheritdoc/>
-    public void Dispose() => _timer?.Dispose();
+    public void Dispose() => DetachTimer(markDisposed: true)?.Dispose();
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        if (_timer is not null)
+        var timer = DetachTimer(markDisposed: true);
+        if (timer is not null)
         {
-            await _timer.DisposeAsync();
+            await timer.DisposeAsync();
         }
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ObjectDisposedException">Thrown when watcher is disposed.</exception>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
     public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
-        ThrowIfStarted(_timer);
-        _timer = _clock.CreateTimer(ExecuteReload, provider, GetNextInterval(), Timeout.InfiniteTimeSpan);
+        lock (_lock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfStarted(_timer);
+
+            _timer = _clock.CreateTimer(ExecuteReload, provider, GetNextInterval(), Timeout.InfiniteTimeSpan);
+        }
     }
 
     /// <inheritdoc/>
-    public void StopWatching()
+    public void StopWatching() => DetachTimer(markDisposed: false)?.Dispose();
+
+    private ITimer? DetachTimer(bool markDisposed)
     {
-        if (_timer is null)
+        lock (_lock)
         {
-            return;
+            _disposed |= markDisposed;
+
+            var timer = _timer;
+            _timer = null;
+
+            return timer;
         }
-
-        _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        _timer.Dispose();
-
-        _timer = null;
     }
 
     private void ExecuteReload(object? state)
@@ -114,9 +127,16 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
 
     private void Reschedule()
     {
+        ITimer? timer;
+        lock (_lock)
+        {
+            timer = _timer;
+        }
+
         try
         {
-            _timer?.Change(GetNextInterval(), Timeout.InfiniteTimeSpan);
+            // a stop detaching this timer in the meantime disposes it right after, so re-arming cannot outlive the stop
+            timer?.Change(GetNextInterval(), Timeout.InfiniteTimeSpan);
         }
         catch (ObjectDisposedException)
         {
