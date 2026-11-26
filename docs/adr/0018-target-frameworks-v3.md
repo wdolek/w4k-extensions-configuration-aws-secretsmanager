@@ -63,8 +63,3 @@ condition is always true.
   `System.Text.Json` union support, native async runtime — currently
   preview) were evaluated and deliberately deferred: none of them justify
   a public API change or a preview feature flag in this release.
-
-> **Amendment (see [ADR-0020](0020-validate-against-latest-release.md)):**
-> from 3.1.0 the baseline is `3.0.0`, the latest release. The `2.4.0`
-> baseline, and the `PKV006` suppressions for `net8.0`/`net9.0` it required,
-> are gone.

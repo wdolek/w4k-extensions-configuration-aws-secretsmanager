@@ -60,9 +60,3 @@ supporting runtimes that are out of support anyway.
 > to `2.4.0` (the last 2.x release) accordingly, and the one TFM divergence
 > mentioned above (`Activity.AddException` behind `#if NET9_0_OR_GREATER`)
 > no longer exists.
-
-> **Amendment (see [ADR-0020](0020-validate-against-latest-release.md)):**
-> the baseline is now the most recently published version and is raised with
-> every release, not only at majors; 3.1.0 validates against `3.0.0`.
-> `CompatibilitySuppressions.xml` is used only for the intended breaks of a
-> major release and has been removed for now.
