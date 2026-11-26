@@ -238,7 +238,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
         var libraryOwned = new RecordingWatcher();
 
         var callerOwnedProvider = CreateProviderWithFailingLoad(source => source.ConfigurationWatcher = callerOwned);
-        var libraryOwnedProvider = CreateProviderWithFailingLoad(source => source.SetOwnedConfigurationWatcher(libraryOwned));
+        var libraryOwnedProvider = CreateProviderWithFailingLoad(source => source.SetConfigurationWatcher(libraryOwned, isOwned: true));
 
         // act
         callerOwnedProvider.Dispose();
@@ -339,7 +339,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
         // arrange
         var watcher = new RecordingWatcher();
         var source = NewSource(ConstantClient(FirstSecret));
-        source.SetOwnedConfigurationWatcher(watcher);
+        source.SetConfigurationWatcher(watcher, isOwned: true);
 
         var provider = new SecretsManagerConfigurationProvider(source);
         provider.Load();
@@ -536,7 +536,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
         };
 
         var source = NewSource(ConstantClient(FirstSecret));
-        source.SetOwnedConfigurationWatcher(watcher);
+        source.SetConfigurationWatcher(watcher, isOwned: true);
         var provider = new SecretsManagerConfigurationProvider(source);
 
         var load = Task.Run(provider.Load);
@@ -1218,7 +1218,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
         var source = NewSource(client);
         if (libraryOwned)
         {
-            source.SetOwnedConfigurationWatcher(watcher);
+            source.SetConfigurationWatcher(watcher, isOwned: true);
         }
         else
         {

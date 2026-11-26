@@ -422,28 +422,27 @@ Two latent defects in the same code are fixed along the way:
 #### 1. Source: record ownership
 
 ```csharp
+private IConfigurationWatcher? _configurationWatcher;
+
 public IConfigurationWatcher? ConfigurationWatcher
 {
-    get => field;
-    set
-    {
-        field = value;
-        OwnsConfigurationWatcher = false; // anything assigned from outside is caller-owned
-    }
+    get => _configurationWatcher;
+    set => SetConfigurationWatcher(value, isOwned: false); // anything assigned from outside is caller-owned
 }
 
 internal bool OwnsConfigurationWatcher { get; private set; }
 
-internal void SetOwnedConfigurationWatcher(IConfigurationWatcher watcher)
+internal void SetConfigurationWatcher(IConfigurationWatcher? watcher, bool isOwned)
 {
-    ConfigurationWatcher = watcher;
-    OwnsConfigurationWatcher = true;
+    _configurationWatcher = watcher;
+    OwnsConfigurationWatcher = isOwned;
 }
 ```
 
-All four `WithPollingWatcher(...)` overloads call
-`SetOwnedConfigurationWatcher(new SecretsManagerPollingWatcher(...))`.
-`WithConfigurationWatcher(...)` keeps using the property (caller-owned).
+`SetConfigurationWatcher` is the only place the watcher and its ownership
+are written. All four `WithPollingWatcher(...)` overloads call it with
+`isOwned: true`; `WithConfigurationWatcher(...)` and the property setter
+with `isOwned: false`.
 
 #### 2. Provider: state
 
