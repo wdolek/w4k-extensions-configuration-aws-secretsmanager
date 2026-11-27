@@ -126,7 +126,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 return;
             }
 
-            Volatile.Write(ref _disposed, 1);
+            Interlocked.Exchange(ref _disposed, 1);
         }
 
         try
@@ -419,13 +419,23 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
     private void StartWatcherOnce()
     {
-        if (_watcher is null)
+        if (_watcher is null || IsDisposed)
         {
             return;
         }
 
         if (Interlocked.CompareExchange(ref _watcherState, WatcherStarting, WatcherIdle) != WatcherIdle)
         {
+            return;
+        }
+
+        if (IsDisposed)
+        {
+            if (Interlocked.CompareExchange(ref _watcherState, WatcherReleased, WatcherStarting) == WatcherStarting)
+            {
+                DisposeOwnedWatcher();
+            }
+
             return;
         }
 

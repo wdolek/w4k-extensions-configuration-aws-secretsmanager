@@ -687,6 +687,14 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
+    public async Task NotStartCallerOwnedWatcherWhenConcurrentDisposeIsInProgressBeforeStart() =>
+        await AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(libraryOwned: false);
+
+    [Test]
+    public async Task NotStartAndStillDisposeLibraryOwnedWatcherWhenConcurrentDisposeIsInProgressBeforeStart() =>
+        await AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(libraryOwned: true);
+
+    [Test]
     public async Task CompleteDisposeWhenStopWaitsForWorkerBlockedInFetch()
     {
         // arrange
@@ -1322,6 +1330,78 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(provider.CurrentVersionId).IsNull();
         await Assert.That(provider.TryGet("Key", out _)).IsFalse();
         await Assert.That(loadFailures).IsEqualTo(1);
+    }
+
+    private static async Task AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(bool libraryOwned)
+    {
+        // arrange
+        var reloadFetchEntered = NewGate();
+        var cancelCallbackEntered = NewGate();
+        var releaseCancelCallback = NewGate();
+        var releaseReloadFetch = NewGate();
+
+        var client = new FakeSecretsClient(async (call, ct) =>
+        {
+            if (call == 1)
+            {
+                return FirstSecret;
+            }
+
+            await using var registration = ct.Register(() =>
+            {
+                cancelCallbackEntered.TrySetResult();
+                releaseCancelCallback.Task.Wait(HangGuard);
+            });
+
+            reloadFetchEntered.TrySetResult();
+            await releaseReloadFetch.Task.WaitAsync(HangGuard);
+            throw new OperationCanceledException(ct);
+        });
+
+        var watcher = new RecordingWatcher();
+        var source = NewSource(client);
+        if (libraryOwned)
+        {
+            source.SetConfigurationWatcher(watcher, isOwned: true);
+        }
+        else
+        {
+            source.ConfigurationWatcher = watcher;
+        }
+
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        Task? reload = null;
+        Task? dispose = null;
+        _ = provider.GetReloadToken().RegisterChangeCallback(
+            _ =>
+            {
+                reload = Task.Run(provider.Reload);
+                reloadFetchEntered.Task.Wait(HangGuard);
+
+                // pause Dispose() after marking disposed and before ReleaseWatcher()
+                dispose = Task.Run(provider.Dispose);
+                cancelCallbackEntered.Task.Wait(HangGuard);
+            },
+            null);
+
+        // act
+        await Assert.That(() => provider.Load()).ThrowsNothing();
+        await Assert.That(watcher.StartCalls).IsEqualTo(0);
+
+        releaseCancelCallback.SetResult();
+        releaseReloadFetch.SetResult();
+
+        var disposeFailure = await ObserveAsync(dispose!);
+        var reloadFailure = await ObserveAsync(reload!);
+
+        // assert
+        await Assert.That(disposeFailure).IsNull();
+        await Assert.That(reloadFailure).IsNull();
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
+        await Assert.That(watcher.StartCalls).IsEqualTo(0);
+        await Assert.That(watcher.StopCalls).IsEqualTo(0);
+        await Assert.That(watcher.DisposeCalls).IsEqualTo(libraryOwned ? 1 : 0);
     }
 
     private static async Task AssertWatcherReleasedWhenCancellationRegistrationThrows(bool libraryOwned)
