@@ -392,235 +392,34 @@ Call it out in release notes.
 
 ### Why
 
-`SecretsManagerConfigurationProvider` is not `IDisposable`, so disposing a
-`ConfigurationRoot` / `ConfigurationManager` (or the host owning it) never
-reaches the watcher. The polling timer keeps running, keeps the provider, AWS
-client, logger factory and secret values reachable, and eventually calls a
-client the host has disposed — on a timer thread, where an unhandled reload
-failure ends the process. Reported by a consumer as prodigy work item #143.
+`SecretsManagerConfigurationProvider` did not own a disposal path, so its
+polling watcher could outlive the configuration root and call services after
+the host had disposed them.
 
-Two latent defects in the same code are fixed along the way:
+### Implemented
 
-- `IConfigurationRoot.Reload()` calls `Load()` again, which calls
-  `StartWatching` again; the polling watcher throws "already started", which
-  surfaces as a `SecretRetrievalException` for a secret that loaded fine.
-- `Reload()` sets its overlap guard and then calls
-  `Source.LoggerFactory.CreateLogger(...)` **outside** the `try/finally` that
-  resets the guard. If logger creation throws (e.g. a disposed logger
-  factory), the guard is never reset and every later reload is skipped
-  silently.
+- Provider implements `IDisposable`; watcher and ownership are captured in its
+  constructor. Source assignment replaces both watcher and ownership.
+- Only a successfully started watcher is stopped; only a library-created
+  watcher is disposed. Polling timers are created only by `StartWatching()`.
+- Watcher startup runs outside the provider lock. Disposal cancels first and
+  defers watcher cleanup to the starting thread when startup is in progress;
+  cleanup runs in `finally`.
+- Data publication is synchronized with disposal. `Reload()` after disposal is
+  a no-op; `Load()` throws. Repeated loads start the watcher only once, and the
+  reload overlap guard is reset on failure.
+- Late changed or unchanged fetch results are discarded after disposal.
+  Ordinary diagnostics and listener behavior are preserved, not hardened.
 
-### Where
+### Verification
 
-- `src/.../SecretsManagerConfigurationProvider.cs`
-- `src/.../SecretsManagerConfigurationSource.cs` (`ConfigurationWatcher`
-  property, `WithPollingWatcher(...)` overloads)
-- `src/.../SecretsManagerPollingWatcher.cs`
+- Tests cover ownership, startup/disposal races, publication, late fetches,
+  post-disposal calls, and polling shutdown.
+- Run `dotnet build W4k.Extensions.Configuration.Aws.SecretsManager.sln`,
+  `dotnet test --project tests/W4k.Extensions.Configuration.Aws.SecretsManager.Tests`,
+  and `dotnet pack src/W4k.Extensions.Configuration.Aws.SecretsManager -c Release`.
 
-### Change
+### Release notes
 
-#### 1. Source: record ownership
-
-```csharp
-private IConfigurationWatcher? _configurationWatcher;
-
-public IConfigurationWatcher? ConfigurationWatcher
-{
-    get => _configurationWatcher;
-    set => SetConfigurationWatcher(value, isOwned: false); // anything assigned from outside is caller-owned
-}
-
-internal bool OwnsConfigurationWatcher { get; private set; }
-
-internal void SetConfigurationWatcher(IConfigurationWatcher? watcher, bool isOwned)
-{
-    _configurationWatcher = watcher;
-    OwnsConfigurationWatcher = isOwned;
-}
-```
-
-`SetConfigurationWatcher` is the only place the watcher and its ownership
-are written. All four `WithPollingWatcher(...)` overloads call it with
-`isOwned: true`; `WithConfigurationWatcher(...)` and the property setter
-with `isOwned: false`.
-
-#### 2. Provider: state
-
-```csharp
-public sealed class SecretsManagerConfigurationProvider
-    : ConfigurationProvider, ISecretsManagerConfigurationProvider, IDisposable
-{
-    private readonly IConfigurationWatcher? _watcher;   // captured in ctor
-    private readonly bool _ownsWatcher;                 // captured in ctor
-    private readonly CancellationTokenSource _disposeCts = new(); // never disposed, only cancelled
-    private readonly Lock _lock = new();                // protects _disposed, _watcherStarted and data publication
-    private bool _watcherStarted;
-    private bool _disposed;
-
-    private bool IsDisposed => Volatile.Read(ref _disposed);
-}
-```
-
-#### 3. Provider: publication boundary
-
-```csharp
-// publishes data unless disposed; never calls OnReload() itself
-private bool TryPublish(string versionId, Dictionary<string, string?> data)
-{
-    lock (_lock)
-    {
-        if (_disposed) return false;
-        Volatile.Write(ref _currentSecretVersionId, versionId);
-        Volatile.Write(ref _lastLoadedUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
-        Data = data;
-        return true;
-    }
-}
-```
-
-`SetData` is replaced by `TryPublish` followed by `OnReload()` outside the
-lock, so a change callback calling `Dispose()` cannot deadlock.
-
-#### 4. Provider: `Load()` and `Reload()`
-
-- Both keep standard `using var activity = ...`, create `logger` inside `try`,
-  fetch via a shared `FetchSecret(...)` helper using a linked CTS with
-  `using var cts` + `cts.CancelAfter(Source.Timeout)`, and ignore late failures
-  via `catch (Exception) when (IsDisposed)`.
-- `Load()` throws `ObjectDisposedException` at entry if already disposed, and
-  after `try/catch` if `!published && IsDisposed` (with no inner exception).
-- `Reload()` returns immediately if `IsDisposed` or already in progress, and
-  resets `_reloadInProgress` in an outer `try/finally` covering `ReloadCore()`.
-
-#### 5. Provider: watcher start and `Dispose()`
-
-`StartWatcherOnce()` checks `_disposed || _watcherStarted` under `_lock`,
-starts the watcher, and sets `_watcherStarted = true`. `Dispose()` marks
-`_disposed = true` and reads `stopWatcher = _watcherStarted` under `_lock`,
-then outside `_lock` cancels `_disposeCts` and in `finally` stops (if started)
-and disposes (if owned) the watcher.
-
-#### 6. Polling watcher
-
-Add `private readonly Lock _lock = new()` and `private bool _disposed`;
-`_timer` is only read or written under `_lock`.
-
-- `StartWatching`: under the lock — `ObjectDisposedException.ThrowIf`, the
-  existing "already started" guard, then create and assign the timer (initial
-  due time is always > 0, so the callback cannot run inside the lock).
-- `StopWatching`: under the lock, take the timer and set `_timer = null`;
-  outside the lock, `Dispose()` it (no preceding `Change` — one fewer
-  failure point between detaching and disposing).
-- `Dispose()`: under the lock, set `_disposed` and take the timer; outside,
-  dispose it. `DisposeAsync()`: same, `await` the timer's `DisposeAsync()`.
-  Both idempotent.
-- `Reschedule`: under the lock, read `_timer`; outside, `Change(...)` it,
-  keeping the `ObjectDisposedException` catch. If a stop detaches that timer
-  in between, the stop disposes it right after, so a re-arm cannot outlive
-  the stop. A callback that was already running finishes after `StopWatching`
-  returns, and one from before a restart may shift the new timer's next due
-  time — accepted, restart isolation is not a goal (ADR-0019).
-
-### Tests
-
-Use hand-written fakes (an `AmazonSecretsManagerClient` subclass overriding
-`GetSecretValueAsync`, which is virtual; a recording `IConfigurationWatcher`
-that also implements `IDisposable`), `TaskCompletionSource` barriers and
-`FakeTimeProvider` — no sleeps. `FakeTimeProvider.Advance()` runs callbacks
-synchronously on the calling thread: when a test needs a fetch to block, call
-`provider.Reload()` (or `Advance`) on a worker task, and await with a bounded
-`WaitAsync` timeout used only as a hang guard.
-
-Provider (new `SecretsManagerConfigurationProviderDisposalShould.cs`):
-
-- Disposing a root built with `ConfigurationBuilder` + `WithPollingWatcher`
-  stops polling: the call count does not grow after advancing several
-  intervals. Same through `ConfigurationManager.Dispose()`.
-- Ownership: each of the four `WithPollingWatcher` overloads yields a watcher
-  that is disposed (its `StartWatching` then throws `ObjectDisposedException`);
-  `WithConfigurationWatcher`, the property set directly, and the property set
-  after `WithPollingWatcher` yield a watcher that gets exactly one
-  `StopWatching()` and no `Dispose()`; the same via the
-  `Action<SecretsManagerConfigurationSource>` overload.
-- Watcher never started (initial load failed and was ignored) → `Dispose()`
-  does not call `StopWatching()`, still disposes an owned watcher.
-- Initial load ignored, later `Load()` succeeds → watcher started exactly once.
-- `IConfigurationRoot.Reload()` with a watcher → no exception, watcher started
-  once.
-- `StartWatching` throws → state reverts; next successful `Load()` retries.
-- `Dispose()` twice → stopped/disposed once. Caller watcher's
-  `StopWatching()` throws → exception propagates from `Dispose()`, the fetch
-  token was already cancelled, a second `Dispose()` does not call it again.
-- `Reload()` after `Dispose()` → no AWS call, no reload token, no callback.
-  `Load()` after `Dispose()` → `ObjectDisposedException`, no AWS call.
-- Re-entrancy: a recording watcher whose `StartWatching` calls
-  `provider.Dispose()` synchronously → `Load()` returns normally (data was
-  published before disposal), `StopWatching()` is called exactly once after
-  `StartWatching` returns, no deadlock.
-- Startup held behind a barrier while `Dispose()` runs on another thread →
-  `StopWatching()` exactly once, after `StartWatching` is released. Same with
-  a `StartWatching` that throws after the barrier → no `StopWatching()`, owned
-  watcher disposed; a later `Load()` throws `ObjectDisposedException`.
-- Custom watcher whose `StopWatching()` waits for its worker, and the worker
-  is inside a reload blocked on a cancellation-honouring fetch → `Dispose()`
-  completes (cancel-before-stop), guarded by a `WaitAsync` hang timeout.
-- `Dispose()` from a reload-token callback during `Reload()` → no deadlock;
-  data published; no `SecretRefreshed` log / `Reloads` counter after the
-  callback.
-- In-flight reload across disposal, with two barriers: the fake fetch signals
-  *cancellation observed* and then waits on a *release* barrier before
-  throwing `OperationCanceledException`. Assert `Dispose()` returned while the
-  fetch is still held, then release; the reload completes without throwing;
-  `Data`/`CurrentVersionId` unchanged; no reload token, no
-  `OnReloadException`, no failure log, no `reloads.failed` count; reload
-  activity has a `disposed` event.
-- Fetch that ignores cancellation and **succeeds** after disposal → not
-  published. Fetch that fails with a non-cancellation exception after
-  disposal → swallowed, no callback.
-- Processor that disposes the provider before returning → not published.
-- In-flight `Load()` across disposal → `ObjectDisposedException` without
-  inner exception, no data, no `OnLoadException`.
-- `Load()` whose change notification disposes the provider and whose logger
-  then throws → `Load()` returns normally, data published.
-- Logger factory whose `CreateLogger` throws during a reload → the overlap
-  guard is reset (a subsequent reload runs).
-- Activity listener whose `ActivityStarted` disposes the provider and throws
-  during a reload → no exception escapes `Reload()`, the guard is reset.
-- Activity listener whose `ActivityStopped` disposes the provider and throws
-  → no exception escapes `Reload()`, the guard is reset; for `Load()`, a
-  published load returns normally.
-- Timeout too large for `CancelAfter` → load fails as before (enveloped), and
-  repeating it does not accumulate registrations (assert via a subsequent
-  `Dispose()` not observing stale callbacks — or, if not observable, cover
-  by code review only).
-- Replacing `source.ConfigurationWatcher` after the provider is built does not
-  change which watcher is started or stopped.
-
-Polling watcher (`SecretsManagerPollingWatcherShould.cs`):
-
-- `StartWatching` after `Dispose()` / after `DisposeAsync()` throws
-  `ObjectDisposedException`.
-- `StopWatching()` after `Dispose()` is a no-op; `Dispose()` / `DisposeAsync()`
-  idempotent.
-- `Dispose()` while started → no further reloads after advancing time.
-- `Dispose()` from inside the reload callback (before `Reschedule`) → no
-  further reloads.
-- Existing "ThrowWhenStartedTwice" stays green; two `StartWatching` calls
-  released together from a barrier → exactly one succeeds, the other throws
-  "already started".
-- `StartWatching` and `Dispose()` released together from a barrier → either
-  start throws `ObjectDisposedException`, or it succeeds and no reload ever
-  fires after advancing time.
-
-### Docs
-
-- README "Refreshing secrets": short "Lifetime" note — disposing the
-  configuration stops the watcher; ownership table from ADR-0019.
-- ADR-0006 and ADR-0007: appended `Amendment (see ADR-0019)` notes.
-
-### Risk
-
-Behavioural, not API-breaking: adding `IDisposable` to a sealed class passes
-package validation. Anyone who disposed a configuration root and still relied
-on refresh loses it; caller-supplied watchers now get `StopWatching()` on
-disposal. Release as a 3.x minor and state both in the release notes.
+- Disposing configuration now stops refresh; caller-supplied watchers receive
+  `StopWatching()` on provider disposal.

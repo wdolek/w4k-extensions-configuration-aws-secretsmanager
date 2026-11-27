@@ -161,6 +161,22 @@ Out of scope, recorded as follow-ups:
   `AmazonSecretsManagerClient` when none is supplied and never disposes it; it
   is the same ownership gap for a cheaper resource.
 
+## Update (2026-11-27)
+
+The lock-held startup description above is refined: startup reserves its state
+under the provider lock, then calls `StartWatching()` outside it. If disposal
+overlaps startup, it cancels the fetch and leaves watcher cleanup to the
+starting thread after start returns or fails. No provider lock is held during
+watcher, cancellation, or change callbacks. A successful start is stopped
+once; a failed-start owned watcher is disposed but not stopped.
+
+Source assignment replaces the watcher and ownership; polling timers are made
+only by `StartWatching()`, so an overwritten, unstarted poller needs no
+disposal. The provider captures watcher and ownership in its constructor.
+Ordinary Activity listener semantics are unchanged: only failures caught by a
+load/reload operation are suppressed after disposal; pre-committed change
+notifications and diagnostics may finish after disposal.
+
 ## Related
 
 - [ADR-0006](0006-error-handling-and-optional-secrets.md) — outcomes reached

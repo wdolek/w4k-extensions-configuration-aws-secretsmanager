@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Reflection;
 using Amazon;
 using Amazon.Runtime;
 using Amazon.SecretsManager;
@@ -15,6 +14,10 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
 public class SecretsManagerConfigurationProviderDisposalShould
 {
+    public enum WatcherSetup { Fluent, Property, PropertyAfterPolling, SourceAction }
+
+    public enum FetchOutcome { Cancelled, ChangedSuccess, UnchangedSuccess, NonCancellationFailure }
+
     private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
 
@@ -46,15 +49,16 @@ public class SecretsManagerConfigurationProviderDisposalShould
     #region Polling stops when configuration is disposed
 
     [Test]
-    public async Task StopPollingWhenConfigurationRootIsDisposed()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task StopPollingWhenConfigurationIsDisposed(bool useManager)
     {
         // arrange
         var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var client = new FakeSecretsClient((_, _) => Task.FromResult(FirstSecret));
 
-        var root = new ConfigurationBuilder()
-            .AddSecretsManager(NewSecretName(), b => b.WithSecretsManager(client).WithPollingWatcher(Interval, time))
-            .Build();
+        IConfigurationBuilder builder = useManager ? new ConfigurationManager() : new ConfigurationBuilder();
+        var root = builder.AddSecretsManager(NewSecretName(), b => b.WithSecretsManager(client).WithPollingWatcher(Interval, time)).Build();
 
         // polling works while the configuration is alive
         time.Advance(Interval + TimeSpan.FromSeconds(1));
@@ -69,134 +73,56 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(client.Calls).IsEqualTo(callsBeforeDispose);
     }
 
-    [Test]
-    public async Task StopPollingWhenConfigurationManagerIsDisposed()
-    {
-        // arrange
-        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
-        var client = new FakeSecretsClient((_, _) => Task.FromResult(FirstSecret));
-
-        var manager = new ConfigurationManager();
-        manager.AddSecretsManager(NewSecretName(), (_, b) => b.WithSecretsManager(client).WithPollingWatcher(Interval, time));
-
-        time.Advance(Interval + TimeSpan.FromSeconds(1));
-        var callsBeforeDispose = client.Calls;
-        await Assert.That(callsBeforeDispose).IsEqualTo(2);
-
-        // act
-        manager.Dispose();
-        time.Advance(Interval * 3);
-
-        // assert
-        await Assert.That(client.Calls).IsEqualTo(callsBeforeDispose);
-    }
-
     #endregion
 
     #region Watcher ownership
 
     [Test]
-    public async Task DisposePollingWatcherCreatedWithInterval() =>
-        await AssertPollingWatcherIsLibraryOwned(b => b.WithPollingWatcher(Interval));
+    [Arguments(0)]
+    [Arguments(1)]
+    [Arguments(2)]
+    [Arguments(3)]
+    public async Task DisposePollingWatcherForEachOverload(int overload) =>
+        await AssertPollingWatcherIsLibraryOwned(b => overload switch
+        {
+            0 => b.WithPollingWatcher(Interval),
+            1 => b.WithPollingWatcher(Interval, new FakeTimeProvider()),
+            2 => b.WithPollingWatcher(Interval, TimeSpan.FromSeconds(5)),
+            _ => b.WithPollingWatcher(Interval, TimeSpan.FromSeconds(5), new FakeTimeProvider()),
+        });
 
     [Test]
-    public async Task DisposePollingWatcherCreatedWithIntervalAndTimeProvider() =>
-        await AssertPollingWatcherIsLibraryOwned(b => b.WithPollingWatcher(Interval, new FakeTimeProvider()));
-
-    [Test]
-    public async Task DisposePollingWatcherCreatedWithIntervalAndJitter() =>
-        await AssertPollingWatcherIsLibraryOwned(b => b.WithPollingWatcher(Interval, TimeSpan.FromSeconds(5)));
-
-    [Test]
-    public async Task DisposePollingWatcherCreatedWithIntervalJitterAndTimeProvider() =>
-        await AssertPollingWatcherIsLibraryOwned(b => b.WithPollingWatcher(Interval, TimeSpan.FromSeconds(5), new FakeTimeProvider()));
-
-    [Test]
-    public async Task StopButNotDisposeWatcherSetWithConfigurationWatcher()
+    [Arguments(WatcherSetup.Fluent)]
+    [Arguments(WatcherSetup.Property)]
+    [Arguments(WatcherSetup.PropertyAfterPolling)]
+    [Arguments(WatcherSetup.SourceAction)]
+    public async Task StopButNotDisposeCallerWatcher(WatcherSetup setup)
     {
-        // arrange
-        var watcher = new RecordingWatcher();
-        var source = new SecretsManagerConfigurationBuilder(NewSecretName())
-            .WithSecretsManager(ConstantClient(FirstSecret))
-            .WithConfigurationWatcher(watcher)
-            .Build();
-
-        var provider = new SecretsManagerConfigurationProvider(source);
-        provider.Load();
-
-        // act
-        provider.Dispose();
-
-        // assert
-        await Assert.That(watcher.StartCalls).IsEqualTo(1);
-        await Assert.That(watcher.StopCalls).IsEqualTo(1);
-        await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
-    }
-
-    [Test]
-    public async Task StopButNotDisposeWatcherSetWithProperty()
-    {
-        // arrange
-        var watcher = new RecordingWatcher();
-        var source = NewSource(ConstantClient(FirstSecret));
-        source.ConfigurationWatcher = watcher;
-
-        var provider = new SecretsManagerConfigurationProvider(source);
-        provider.Load();
-
-        // act
-        provider.Dispose();
-
-        // assert
-        await Assert.That(watcher.StartCalls).IsEqualTo(1);
-        await Assert.That(watcher.StopCalls).IsEqualTo(1);
-        await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
-    }
-
-    [Test]
-    public async Task StopButNotDisposeWatcherSetWithPropertyAfterPollingWatcher()
-    {
-        // arrange
-        var watcher = new RecordingWatcher();
-        var source = new SecretsManagerConfigurationBuilder(NewSecretName())
-            .WithSecretsManager(ConstantClient(FirstSecret))
-            .WithPollingWatcher(Interval, new FakeTimeProvider())
-            .Build();
-
-        source.ConfigurationWatcher = watcher;
-
-        var provider = new SecretsManagerConfigurationProvider(source);
-        provider.Load();
-
-        // act
-        provider.Dispose();
-
-        // assert
-        await Assert.That(watcher.StartCalls).IsEqualTo(1);
-        await Assert.That(watcher.StopCalls).IsEqualTo(1);
-        await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
-    }
-
-    [Test]
-    public async Task StopButNotDisposeWatcherSetViaSourceAction()
-    {
-        // arrange
         var watcher = new RecordingWatcher();
         var client = ConstantClient(FirstSecret);
-
-        var root = new ConfigurationBuilder()
-            .AddSecretsManager(source =>
+        IDisposable owner;
+        if (setup == WatcherSetup.SourceAction)
+        {
+            owner = (IDisposable)new ConfigurationBuilder().AddSecretsManager(source =>
             {
                 source.SecretName = NewSecretName();
                 source.SecretsManager = client;
                 source.ConfigurationWatcher = watcher;
-            })
-            .Build();
+            }).Build();
+        }
+        else
+        {
+            var builder = new SecretsManagerConfigurationBuilder(NewSecretName()).WithSecretsManager(client);
+            if (setup == WatcherSetup.Fluent) builder.WithConfigurationWatcher(watcher);
+            if (setup == WatcherSetup.PropertyAfterPolling) builder.WithPollingWatcher(Interval, new FakeTimeProvider());
+            var source = builder.Build();
+            if (setup != WatcherSetup.Fluent) source.ConfigurationWatcher = watcher;
+            var provider = new SecretsManagerConfigurationProvider(source);
+            provider.Load();
+            owner = provider;
+        }
 
-        // act
-        ((IDisposable)root).Dispose();
-
-        // assert
+        owner.Dispose();
         await Assert.That(watcher.StartCalls).IsEqualTo(1);
         await Assert.That(watcher.StopCalls).IsEqualTo(1);
         await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
@@ -227,7 +153,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task DisposePreviousPollingWatcherWhenReplacedByConfigurationWatcher()
+    public async Task SelectConfigurationWatcherWhenReplacingPollingWatcher()
     {
         // arrange
         var customWatcher = new RecordingWatcher();
@@ -235,15 +161,9 @@ public class SecretsManagerConfigurationProviderDisposalShould
             .WithSecretsManager(ConstantClient(FirstSecret))
             .WithPollingWatcher(Interval, new FakeTimeProvider());
 
-        var pollingWatcher = builder.Build().ConfigurationWatcher as SecretsManagerPollingWatcher;
-        await Assert.That(pollingWatcher).IsNotNull();
-
         // act
         var source = builder.WithConfigurationWatcher(customWatcher).Build();
         var provider = new SecretsManagerConfigurationProvider(source);
-
-        // assert: overwritten library-owned watcher was already disposed before provider start/disposal
-        await Assert.That(() => pollingWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
 
         provider.Load();
         provider.Dispose();
@@ -254,51 +174,52 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task DisposePreviousPollingWatcherWhenReplacedByAnotherPollingWatcher()
+    public async Task SelectLatestPollingWatcherWhenReplacingPollingWatcher()
     {
         // arrange
+        var firstTime = new FakeTimeProvider();
+        var secondTime = new FakeTimeProvider();
+        var client = ConstantClient(FirstSecret);
         var builder = new SecretsManagerConfigurationBuilder(NewSecretName())
-            .WithSecretsManager(ConstantClient(FirstSecret))
-            .WithPollingWatcher(Interval, new FakeTimeProvider());
+            .WithSecretsManager(client)
+            .WithPollingWatcher(Interval, firstTime);
 
         var firstWatcher = builder.Build().ConfigurationWatcher as SecretsManagerPollingWatcher;
         await Assert.That(firstWatcher).IsNotNull();
 
         // act
-        var source = builder.WithPollingWatcher(Interval * 2, new FakeTimeProvider()).Build();
+        var source = builder.WithPollingWatcher(Interval * 2, secondTime).Build();
         var secondWatcher = source.ConfigurationWatcher as SecretsManagerPollingWatcher;
         await Assert.That(secondWatcher).IsNotNull();
         await Assert.That(ReferenceEquals(firstWatcher, secondWatcher)).IsFalse();
 
         var provider = new SecretsManagerConfigurationProvider(source);
 
-        // assert: first watcher disposed on overwrite, second stays alive until provider disposes
-        await Assert.That(() => firstWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
-
         provider.Load();
+        firstTime.Advance(Interval * 3);
+        await Assert.That(client.Calls).IsEqualTo(1);
+        secondTime.Advance(Interval * 2);
+        await Assert.That(client.Calls).IsEqualTo(2);
         provider.Dispose();
 
         await Assert.That(() => secondWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
     }
 
     [Test]
-    public async Task DisposePreviousPollingWatcherWhenClearedViaPropertyBeforeProviderCreated()
+    public async Task NotStartPollingWhenWatcherIsClearedBeforeProviderCreated()
     {
-        // arrange
+        var time = new FakeTimeProvider();
+        var client = ConstantClient(FirstSecret);
         var source = new SecretsManagerConfigurationBuilder(NewSecretName())
-            .WithSecretsManager(ConstantClient(FirstSecret))
-            .WithPollingWatcher(Interval, new FakeTimeProvider())
+            .WithSecretsManager(client)
+            .WithPollingWatcher(Interval, time)
             .Build();
-
-        var pollingWatcher = source.ConfigurationWatcher as SecretsManagerPollingWatcher;
-        await Assert.That(pollingWatcher).IsNotNull();
-
-        // act
         source.ConfigurationWatcher = null;
-        var provider = new SecretsManagerConfigurationProvider(source);
+        using var provider = new SecretsManagerConfigurationProvider(source);
+        provider.Load();
 
-        // assert
-        await Assert.That(() => pollingWatcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+        time.Advance(Interval * 3);
+        await Assert.That(client.Calls).IsEqualTo(1);
     }
 
     [Test]
@@ -361,27 +282,21 @@ public class SecretsManagerConfigurationProviderDisposalShould
     #region Watcher lifecycle
 
     [Test]
-    public async Task NotStopWatcherThatWasNeverStarted()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task NotStopWatcherThatWasNeverStarted(bool libraryOwned)
     {
         // arrange
-        var callerOwned = new RecordingWatcher();
-        var libraryOwned = new RecordingWatcher();
-
-        var callerOwnedProvider = CreateProviderWithFailingLoad(source => source.ConfigurationWatcher = callerOwned);
-        var libraryOwnedProvider = CreateProviderWithFailingLoad(source => source.SetConfigurationWatcher(libraryOwned, isOwned: true));
+        var watcher = new RecordingWatcher();
+        var provider = CreateProviderWithFailingLoad(source => source.SetConfigurationWatcher(watcher, libraryOwned));
 
         // act
-        callerOwnedProvider.Dispose();
-        libraryOwnedProvider.Dispose();
+        provider.Dispose();
 
         // assert
-        await Assert.That(callerOwned.StartCalls).IsEqualTo(0);
-        await Assert.That(callerOwned.StopCalls).IsEqualTo(0);
-        await Assert.That(callerOwned.DisposeCalls).IsEqualTo(0);
-
-        await Assert.That(libraryOwned.StartCalls).IsEqualTo(0);
-        await Assert.That(libraryOwned.StopCalls).IsEqualTo(0);
-        await Assert.That(libraryOwned.DisposeCalls).IsEqualTo(1);
+        await Assert.That(watcher.StartCalls).IsEqualTo(0);
+        await Assert.That(watcher.StopCalls).IsEqualTo(0);
+        await Assert.That(watcher.DisposeCalls).IsEqualTo(libraryOwned ? 1 : 0);
     }
 
     [Test]
@@ -523,17 +438,20 @@ public class SecretsManagerConfigurationProviderDisposalShould
         provider.Load();
 
         var reload = Task.Run(provider.Reload);
-        await fetchStarted.Task.WaitAsync(HangGuard);
-
-        // act
-        var ex = await Assert.That(() => provider.Dispose()).ThrowsExactly<InvalidOperationException>();
-        await Assert.That(() => provider.Dispose()).ThrowsNothing();
-
-        releaseFetch.SetResult();
+        try
+        {
+            await fetchStarted.Task.WaitAsync(HangGuard);
+            var ex = await Assert.That(() => provider.Dispose()).ThrowsExactly<InvalidOperationException>();
+            await Assert.That(ex!.Message).IsEqualTo("stop failed");
+            await Assert.That(() => provider.Dispose()).ThrowsNothing();
+        }
+        finally
+        {
+            releaseFetch.TrySetResult();
+        }
         var reloadFailure = await ObserveAsync(reload);
 
         // assert
-        await Assert.That(ex!.Message).IsEqualTo("stop failed");
         await Assert.That(tokenCancelledWhenStopping).IsTrue();
         await Assert.That(watcher.StopCalls).IsEqualTo(1);
         await Assert.That(reloadFailure).IsNull();
@@ -593,7 +511,50 @@ public class SecretsManagerConfigurationProviderDisposalShould
     #region Races with the watcher start
 
     [Test]
-    public async Task StopWatcherAfterStartReturnsWhenDisposedWhileStarting()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task StopAfterStartReturnsWhenStartDisposesProvider(bool owned)
+    {
+        var watcher = new RecordingWatcher { OnStart = p => ((IDisposable)p).Dispose() };
+        var source = NewSource(ConstantClient(FirstSecret));
+        source.SetConfigurationWatcher(watcher, owned);
+        var provider = new SecretsManagerConfigurationProvider(source);
+
+        await Assert.That(() => provider.Load()).ThrowsNothing();
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
+        await Assert.That(provider.TryGet("Key", out var value)).IsTrue();
+        await Assert.That(value).IsEqualTo("one");
+        await Assert.That(watcher.StopCalls).IsEqualTo(1);
+        await Assert.That(watcher.StopSawStartReturned).IsTrue();
+        await Assert.That(watcher.DisposeCalls).IsEqualTo(owned ? 1 : 0);
+        provider.Dispose();
+        await Assert.That(watcher.StopCalls).IsEqualTo(1);
+        await Assert.That(watcher.DisposeCalls).IsEqualTo(owned ? 1 : 0);
+    }
+
+    [Test]
+    public async Task AllowCrossThreadReloadDuringWatcherStart()
+    {
+        var watcher = new RecordingWatcher
+        {
+            OnStart = p => Task.Run(p.Reload).WaitAsync(HangGuard).GetAwaiter().GetResult(),
+        };
+        var client = new FakeSecretsClient((call, _) => Task.FromResult(call == 1 ? FirstSecret : SecondSecret));
+        var source = NewSource(client);
+        source.ConfigurationWatcher = watcher;
+        using var provider = new SecretsManagerConfigurationProvider(source);
+
+        await Task.Run(provider.Load).WaitAsync(HangGuard);
+        await Assert.That(client.Calls).IsEqualTo(2);
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(SecondVersion);
+        await Assert.That(provider.TryGet("Key", out var value)).IsTrue();
+        await Assert.That(value).IsEqualTo("two");
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task StopWatcherAfterStartReturnsWhenDisposedWhileStarting(bool owned)
     {
         // arrange
         var entered = NewGate();
@@ -608,24 +569,30 @@ public class SecretsManagerConfigurationProviderDisposalShould
         };
 
         var source = NewSource(ConstantClient(FirstSecret));
-        source.ConfigurationWatcher = watcher;
+        source.SetConfigurationWatcher(watcher, owned);
         var provider = new SecretsManagerConfigurationProvider(source);
 
         var load = Task.Run(provider.Load);
-        await entered.Task.WaitAsync(HangGuard);
-
-        // act
-        var dispose = Task.Run(provider.Dispose);
-        release.SetResult();
+        try
+        {
+            await entered.Task.WaitAsync(HangGuard);
+            await Task.Run(provider.Dispose).WaitAsync(HangGuard);
+            await Assert.That(watcher.StopCalls).IsEqualTo(0);
+            await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
 
         var loadFailure = await ObserveAsync(load);
-        await dispose.WaitAsync(HangGuard);
 
         // assert
         await Assert.That(loadFailure).IsNull();
         await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
         await Assert.That(watcher.StopCalls).IsEqualTo(1);
         await Assert.That(watcher.StopSawStartReturned).IsTrue();
+        await Assert.That(watcher.DisposeCalls).IsEqualTo(owned ? 1 : 0);
     }
 
     [Test]
@@ -649,33 +616,26 @@ public class SecretsManagerConfigurationProviderDisposalShould
         var provider = new SecretsManagerConfigurationProvider(source);
 
         var load = Task.Run(provider.Load);
-        await entered.Task.WaitAsync(HangGuard);
-
-        // act
-        var dispose = Task.Run(provider.Dispose);
-        release.SetResult();
-
-        var loadFailure = await ObserveAsync(load);
-        await dispose.WaitAsync(HangGuard);
-
-        // assert
-        if (loadFailure is not null)
+        try
         {
-            await Assert.That(loadFailure).IsTypeOf<SecretRetrievalException>();
+            await entered.Task.WaitAsync(HangGuard);
+            await Task.Run(provider.Dispose).WaitAsync(HangGuard);
+            await Assert.That(watcher.StopCalls).IsEqualTo(0);
+            await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
+        }
+        finally
+        {
+            release.TrySetResult();
         }
 
+        var loadFailure = await ObserveAsync(load);
+
+        await Assert.That(loadFailure).IsNull();
+        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
         await Assert.That(watcher.StopCalls).IsEqualTo(0);
         await Assert.That(watcher.DisposeCalls).IsEqualTo(1);
         await Assert.That(() => provider.Load()).ThrowsExactly<ObjectDisposedException>();
     }
-
-    [Test]
-    public async Task NotStartCallerOwnedWatcherWhenConcurrentDisposeIsInProgressBeforeStart() =>
-        await AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(libraryOwned: false);
-
-    [Test]
-    public async Task NotStartAndStillDisposeLibraryOwnedWatcherWhenConcurrentDisposeIsInProgressBeforeStart() =>
-        await AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(libraryOwned: true);
 
     [Test]
     public async Task CompleteDisposeWhenStopWaitsForWorkerBlockedInFetch()
@@ -730,14 +690,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(watcher.StopCalls).IsEqualTo(1);
     }
 
-    [Test]
-    public async Task StopCallerOwnedWatcherOnceWhenCancellationRegistrationThrowsDuringDispose() =>
-        await AssertWatcherReleasedWhenCancellationRegistrationThrows(libraryOwned: false);
-
-    [Test]
-    public async Task StopAndDisposeLibraryOwnedWatcherOnceWhenCancellationRegistrationThrowsDuringDispose() =>
-        await AssertWatcherReleasedWhenCancellationRegistrationThrows(libraryOwned: true);
-
     #endregion
 
     #region Disposal during reload
@@ -776,7 +728,11 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task IgnoreCancelledFetchOfReloadInFlightDuringDispose()
+    [Arguments(FetchOutcome.Cancelled)]
+    [Arguments(FetchOutcome.ChangedSuccess)]
+    [Arguments(FetchOutcome.UnchangedSuccess)]
+    [Arguments(FetchOutcome.NonCancellationFailure)]
+    public async Task DiscardReloadFetchCompletingAfterDispose(FetchOutcome outcome)
     {
         // arrange
         var secretName = NewSecretName();
@@ -799,7 +755,14 @@ public class SecretsManagerConfigurationProviderDisposalShould
             fetchStarted.TrySetResult();
 
             await releaseFetch.Task.WaitAsync(HangGuard);
-            throw new OperationCanceledException(ct);
+            return outcome switch
+            {
+                FetchOutcome.Cancelled => throw new OperationCanceledException(ct),
+                FetchOutcome.ChangedSuccess => SecondSecret,
+                FetchOutcome.UnchangedSuccess => FirstSecret,
+                FetchOutcome.NonCancellationFailure => throw new InvalidOperationException("client is disposed"),
+                _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+            };
         });
 
         var reloadFailures = 0;
@@ -812,16 +775,18 @@ public class SecretsManagerConfigurationProviderDisposalShould
 
         var reloadToken = provider.GetReloadToken();
         var reload = Task.Run(provider.Reload);
-        await fetchStarted.Task.WaitAsync(HangGuard);
-
-        // act
-        await Task.Run(provider.Dispose).WaitAsync(HangGuard);
-
-        // assert: Dispose does not wait for the fetch, which has observed the cancellation but is still held
-        await Assert.That(cancellationObserved.Task.IsCompletedSuccessfully).IsTrue();
-        await Assert.That(reload.IsCompleted).IsFalse();
-
-        releaseFetch.SetResult();
+        try
+        {
+            await fetchStarted.Task.WaitAsync(HangGuard);
+            await Task.Run(provider.Dispose).WaitAsync(HangGuard);
+            // Dispose does not wait for the fetch, which observed cancellation but is still held.
+            await Assert.That(cancellationObserved.Task.IsCompletedSuccessfully).IsTrue();
+            await Assert.That(reload.IsCompleted).IsFalse();
+        }
+        finally
+        {
+            releaseFetch.TrySetResult();
+        }
         var reloadFailure = await ObserveAsync(reload);
 
         await Assert.That(reloadFailure).IsNull();
@@ -831,90 +796,15 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(reloadToken.HasChanged).IsFalse();
         await Assert.That(reloadFailures).IsEqualTo(0);
         await Assert.That(loggers.Events).DoesNotContain("FailedToReloadSecret");
+        await Assert.That(loggers.Events).DoesNotContain("SecretReloaded");
+        await Assert.That(loggers.Events).DoesNotContain("SecretAlreadyLoaded");
         await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.reloads.failed", secretName)).IsEqualTo(0);
+        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.reloads", secretName)).IsEqualTo(0);
+        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.reloads.skipped", secretName)).IsEqualTo(0);
 
         var activity = FindActivity(activities, ActivityDescriptors.ReloadActivityName, secretName);
         await Assert.That(activity).IsNotNull();
         await Assert.That(activity!.Events.Any(e => e.Name == "disposed")).IsTrue();
-    }
-
-    [Test]
-    public async Task NotPublishWhenFetchIgnoresCancellationAndSucceedsAfterDispose()
-    {
-        // arrange
-        var fetchStarted = NewGate();
-        var releaseFetch = NewGate();
-
-        var client = new FakeSecretsClient(async (call, _) =>
-        {
-            if (call == 1)
-            {
-                return FirstSecret;
-            }
-
-            fetchStarted.TrySetResult();
-            await releaseFetch.Task.WaitAsync(HangGuard);
-            return SecondSecret;
-        });
-
-        var provider = new SecretsManagerConfigurationProvider(NewSource(client));
-        provider.Load();
-
-        var reloadToken = provider.GetReloadToken();
-        var reload = Task.Run(provider.Reload);
-        await fetchStarted.Task.WaitAsync(HangGuard);
-
-        // act
-        await Task.Run(provider.Dispose).WaitAsync(HangGuard);
-        releaseFetch.SetResult();
-        var reloadFailure = await ObserveAsync(reload);
-
-        // assert
-        await Assert.That(reloadFailure).IsNull();
-        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
-        await Assert.That(provider.TryGet("Key", out var value)).IsTrue();
-        await Assert.That(value).IsEqualTo("one");
-        await Assert.That(reloadToken.HasChanged).IsFalse();
-    }
-
-    [Test]
-    public async Task SwallowNonCancellationFailureOfFetchAfterDispose()
-    {
-        // arrange
-        var fetchStarted = NewGate();
-        var releaseFetch = NewGate();
-
-        var client = new FakeSecretsClient(async (call, _) =>
-        {
-            if (call == 1)
-            {
-                return FirstSecret;
-            }
-
-            fetchStarted.TrySetResult();
-            await releaseFetch.Task.WaitAsync(HangGuard);
-            throw new InvalidOperationException("client is disposed");
-        });
-
-        var reloadFailures = 0;
-        var source = NewSource(client);
-        source.OnReloadException = _ => Interlocked.Increment(ref reloadFailures);
-
-        var provider = new SecretsManagerConfigurationProvider(source);
-        provider.Load();
-
-        var reload = Task.Run(provider.Reload);
-        await fetchStarted.Task.WaitAsync(HangGuard);
-
-        // act
-        await Task.Run(provider.Dispose).WaitAsync(HangGuard);
-        releaseFetch.SetResult();
-        var reloadFailure = await ObserveAsync(reload);
-
-        // assert
-        await Assert.That(reloadFailure).IsNull();
-        await Assert.That(reloadFailures).IsEqualTo(0);
-        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
     }
 
     [Test]
@@ -991,11 +881,15 @@ public class SecretsManagerConfigurationProviderDisposalShould
 
         var provider = new SecretsManagerConfigurationProvider(source);
         var load = Task.Run(provider.Load);
-        await fetchStarted.Task.WaitAsync(HangGuard);
-
-        // act
-        await Task.Run(provider.Dispose).WaitAsync(HangGuard);
-        releaseFetch.SetResult();
+        try
+        {
+            await fetchStarted.Task.WaitAsync(HangGuard);
+            await Task.Run(provider.Dispose).WaitAsync(HangGuard);
+        }
+        finally
+        {
+            releaseFetch.TrySetResult();
+        }
         var loadFailure = await ObserveAsync(load);
 
         // assert
@@ -1134,7 +1028,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
 
         // act: provider is not disposed, the listener failure surfaces as before
         await Assert.That(() => provider.Reload()).ThrowsExactly<InvalidOperationException>();
-        await Assert.That(GetReloadGuard(provider)).IsEqualTo(0);
 
         provider.Reload();
 
@@ -1191,7 +1084,10 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(() => watcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
     }
 
-    private static async Task AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(bool libraryOwned)
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task NotStartWatcherWhenConcurrentDisposeIsInProgressBeforeStart(bool libraryOwned)
     {
         // arrange
         var reloadFetchEntered = NewGate();
@@ -1244,12 +1140,16 @@ public class SecretsManagerConfigurationProviderDisposalShould
             },
             null);
 
-        // act
-        await Assert.That(() => provider.Load()).ThrowsNothing();
-        await Assert.That(watcher.StartCalls).IsEqualTo(0);
-
-        releaseCancelCallback.SetResult();
-        releaseReloadFetch.SetResult();
+        try
+        {
+            await Assert.That(() => provider.Load()).ThrowsNothing();
+            await Assert.That(watcher.StartCalls).IsEqualTo(0);
+        }
+        finally
+        {
+            releaseCancelCallback.TrySetResult();
+            releaseReloadFetch.TrySetResult();
+        }
 
         var disposeFailure = await ObserveAsync(dispose!);
         var reloadFailure = await ObserveAsync(reload!);
@@ -1263,7 +1163,10 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(watcher.DisposeCalls).IsEqualTo(libraryOwned ? 1 : 0);
     }
 
-    private static async Task AssertWatcherReleasedWhenCancellationRegistrationThrows(bool libraryOwned)
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ReleaseWatcherWhenCancellationRegistrationThrowsDuringDispose(bool libraryOwned)
     {
         // arrange
         var fetchStarted = NewGate();
@@ -1298,17 +1201,20 @@ public class SecretsManagerConfigurationProviderDisposalShould
         provider.Load();
 
         var reload = Task.Run(provider.Reload);
-        await fetchStarted.Task.WaitAsync(HangGuard);
-
-        // act
-        var ex = await Assert.That(() => provider.Dispose()).ThrowsExactly<AggregateException>();
-        await Assert.That(() => provider.Dispose()).ThrowsNothing();
-
-        releaseFetch.SetResult();
+        try
+        {
+            await fetchStarted.Task.WaitAsync(HangGuard);
+            var ex = await Assert.That(() => provider.Dispose()).ThrowsExactly<AggregateException>();
+            await Assert.That(ex!.Flatten().InnerExceptions.Any(e => e is InvalidOperationException { Message: "boom" })).IsTrue();
+            await Assert.That(() => provider.Dispose()).ThrowsNothing();
+        }
+        finally
+        {
+            releaseFetch.TrySetResult();
+        }
         var reloadFailure = await ObserveAsync(reload);
 
         // assert
-        await Assert.That(ex!.Flatten().InnerExceptions.Any(e => e is InvalidOperationException { Message: "boom" })).IsTrue();
         await Assert.That(watcher.StopCalls).IsEqualTo(1);
         await Assert.That(watcher.DisposeCalls).IsEqualTo(libraryOwned ? 1 : 0);
         await Assert.That(reloadFailure).IsNull();
@@ -1349,11 +1255,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
             return ex;
         }
     }
-
-    private static int GetReloadGuard(SecretsManagerConfigurationProvider provider) =>
-        (int)typeof(SecretsManagerConfigurationProvider)
-            .GetField("_reloadInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(provider)!;
 
     private static ActivityListener StartActivityListener(
         out ConcurrentBag<Activity> activities,

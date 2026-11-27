@@ -14,8 +14,6 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationSource : IConfigurationSource
 {
     private bool _built;
-    private bool _watcherCaptured;
-    private bool _ownsConfigurationWatcher;
     private IConfigurationWatcher? _configurationWatcher;
 
     /// <summary>
@@ -76,9 +74,9 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// </summary>
     /// <remarks>
     /// A watcher assigned here is owned by the caller: the provider stops it when it is disposed,
-    /// but does not dispose it. Assigning a watcher before the provider is created replaces any previously
-    /// configured watcher (disposing a previously library-created polling watcher). The watcher is captured
-    /// when the provider is created; changing this property afterwards has no effect on an existing provider.
+    /// but does not dispose it. Assigning a watcher replaces any previously configured watcher.
+    /// The watcher is captured when the provider is created; changing this property afterwards
+    /// has no effect on an existing provider.
     /// </remarks>
     public IConfigurationWatcher? ConfigurationWatcher
     {
@@ -148,28 +146,12 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
         return new SecretsManagerConfigurationProvider(this);
     }
 
-    internal IConfigurationWatcher? CaptureConfigurationWatcher(out bool isOwned)
-    {
-        _watcherCaptured = true;
-        isOwned = _ownsConfigurationWatcher;
-        return _configurationWatcher;
-    }
+    internal bool OwnsConfigurationWatcher { get; private set; }
 
     internal void SetConfigurationWatcher(IConfigurationWatcher? watcher, bool isOwned)
     {
-        var previous = _configurationWatcher;
-        var wasOwned = _ownsConfigurationWatcher;
-
         _configurationWatcher = watcher;
-        _ownsConfigurationWatcher = isOwned;
-
-        if (!_watcherCaptured
-            && wasOwned
-            && !ReferenceEquals(previous, watcher)
-            && previous is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        OwnsConfigurationWatcher = isOwned;
     }
 }
 
@@ -327,8 +309,6 @@ public sealed class SecretsManagerConfigurationBuilder
     /// </para>
     /// <para>
     /// Calling this method replaces any previously configured watcher on the source and switches ownership to the caller.
-    /// If a polling watcher was previously configured via <see cref="WithPollingWatcher(TimeSpan)"/>,
-    /// it is disposed when replaced (provided the source has not already been captured by a provider).
     /// </para>
     /// <para>
     /// Watcher instances such as <see cref="SecretsManagerPollingWatcher"/> are bound to a single provider
@@ -352,8 +332,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// </summary>
     /// <remarks>
     /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
-    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher
-    /// (disposing a previously library-created watcher, while leaving a caller-supplied watcher untouched).
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
     /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <returns>Current builder instance.</returns>
@@ -369,8 +348,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// </summary>
     /// <remarks>
     /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
-    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher
-    /// (disposing a previously library-created watcher, while leaving a caller-supplied watcher untouched).
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
     /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="timeProvider">Time provider.</param>
@@ -388,8 +366,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// </summary>
     /// <remarks>
     /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
-    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher
-    /// (disposing a previously library-created watcher, while leaving a caller-supplied watcher untouched).
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
     /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
@@ -406,8 +383,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// </summary>
     /// <remarks>
     /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
-    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher
-    /// (disposing a previously library-created watcher, while leaving a caller-supplied watcher untouched).
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
     /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>

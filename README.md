@@ -289,7 +289,7 @@ Who disposes the watcher itself depends on who created it:
 | `WithConfigurationWatcher(...)` | caller  | stopped, not disposed |
 | `ConfigurationWatcher` property | caller  | stopped, not disposed |
 
-Setting a watcher replaces any previously configured watcher on the source (if a library-created polling watcher is replaced before the provider is created, it is disposed; calling `WithConfigurationWatcher(...)` or assigning `ConfigurationWatcher` always switches ownership to the caller). A watcher instance such as `SecretsManagerPollingWatcher` cannot be shared across multiple sources or providers — prefer `WithPollingWatcher(...)` when you want library-managed polling.
+Setting a watcher replaces any previously configured watcher on the source. Calling `WithConfigurationWatcher(...)` or assigning `ConfigurationWatcher` switches ownership to the caller. Polling watchers allocate their timers only when watching starts; replacing an unstarted watcher needs no resource cleanup. A watcher instance such as `SecretsManagerPollingWatcher` cannot be shared across multiple sources or providers — prefer `WithPollingWatcher(...)` when you want library-managed polling.
 
 The watcher is captured when the provider is created, changing `ConfigurationWatcher` afterwards has no effect.
 

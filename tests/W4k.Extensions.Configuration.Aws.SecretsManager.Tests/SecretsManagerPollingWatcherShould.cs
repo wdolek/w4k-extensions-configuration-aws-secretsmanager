@@ -129,28 +129,17 @@ public class SecretsManagerPollingWatcherShould
     }
 
     [Test]
-    public async Task ThrowWhenStartedAfterDispose()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ThrowWhenStartedAfterDispose(bool asyncDispose)
     {
         // arrange
         var provider = new CountingProvider();
         var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
 
         // act
-        watcher.Dispose();
-
-        // assert
-        await Assert.That(() => watcher.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
-    }
-
-    [Test]
-    public async Task ThrowWhenStartedAfterDisposeAsync()
-    {
-        // arrange
-        var provider = new CountingProvider();
-        var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
-
-        // act
-        await watcher.DisposeAsync();
+        if (asyncDispose) await watcher.DisposeAsync();
+        else watcher.Dispose();
 
         // assert
         await Assert.That(() => watcher.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
@@ -200,7 +189,9 @@ public class SecretsManagerPollingWatcherShould
     }
 
     [Test]
-    public async Task NotExecuteReloadAfterDispose()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task NotExecuteReloadAfterDispose(bool asyncDispose)
     {
         // arrange
         var interval = TimeSpan.FromMinutes(5);
@@ -213,29 +204,12 @@ public class SecretsManagerPollingWatcherShould
         await Assert.That(provider.ReloadCalls).IsEqualTo(1);
 
         // act
-        watcher.Dispose();
+        if (asyncDispose) await watcher.DisposeAsync();
+        else watcher.Dispose();
         _timeProvider.Advance(interval * 3);
 
         // assert
         await Assert.That(provider.ReloadCalls).IsEqualTo(1);
-    }
-
-    [Test]
-    public async Task NotExecuteReloadAfterDisposeAsync()
-    {
-        // arrange
-        var interval = TimeSpan.FromMinutes(5);
-
-        var provider = new CountingProvider();
-        var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
-        watcher.StartWatching(provider);
-
-        // act
-        await watcher.DisposeAsync();
-        _timeProvider.Advance(interval * 3);
-
-        // assert
-        await Assert.That(provider.ReloadCalls).IsEqualTo(0);
     }
 
     [Test]
@@ -260,77 +234,37 @@ public class SecretsManagerPollingWatcherShould
     [Test]
     public async Task AllowOnlyOneOfConcurrentStarts()
     {
-        for (var i = 0; i < 50; i++)
+        var guard = TimeSpan.FromSeconds(10);
+        var time = new BlockingTimeProvider();
+        var provider = new CountingProvider();
+        using var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), time);
+        var first = Task.Run(() => Capture(() => watcher.StartWatching(provider)));
+        Task<Exception?>? second = null;
+        try
         {
-            // arrange
-            var provider = new CountingProvider();
-            var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
-            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            var starts = Enumerable
-                .Range(0, 2)
-                .Select(_ => Task.Run(() =>
-                {
-                    gate.Task.Wait(TimeSpan.FromSeconds(10));
-                    return Capture(() => watcher.StartWatching(provider));
-                }))
-                .ToArray();
-
-            // act
-            gate.SetResult();
-            var results = await Task.WhenAll(starts).WaitAsync(TimeSpan.FromSeconds(10));
-
-            // assert
-            await Assert.That(results.Count(r => r is null)).IsEqualTo(1);
-
-            var failure = results.Single(r => r is not null);
-            await Assert.That(failure).IsTypeOf<InvalidOperationException>();
-            await Assert.That(failure!.Message).Contains("already started");
-
-            watcher.Dispose();
-        }
-    }
-
-    [Test]
-    public async Task NeverLeaveTimerRunningWhenStartRacesWithDispose()
-    {
-        var interval = TimeSpan.FromMinutes(5);
-
-        for (var i = 0; i < 100; i++)
-        {
-            // arrange
-            var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
-            var provider = new CountingProvider();
-            var watcher = new SecretsManagerPollingWatcher(interval, time);
-            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            var start = Task.Run(() =>
+            await time.Entered.Task.WaitAsync(guard);
+            Thread? thread = null;
+            var entering = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            second = Task.Run(() =>
             {
-                gate.Task.Wait(TimeSpan.FromSeconds(10));
+                thread = Thread.CurrentThread;
+                entering.SetResult();
                 return Capture(() => watcher.StartWatching(provider));
             });
-
-            var dispose = Task.Run(() =>
-            {
-                gate.Task.Wait(TimeSpan.FromSeconds(10));
-                watcher.Dispose();
-            });
-
-            // act
-            gate.SetResult();
-            var startFailure = await start.WaitAsync(TimeSpan.FromSeconds(10));
-            await dispose.WaitAsync(TimeSpan.FromSeconds(10));
-
-            time.Advance(interval * 3);
-
-            // assert: either the start lost the race, or its timer was disposed
-            if (startFailure is not null)
-            {
-                await Assert.That(startFailure).IsTypeOf<ObjectDisposedException>();
-            }
-
-            await Assert.That(provider.ReloadCalls).IsEqualTo(0);
+            await entering.Task.WaitAsync(guard);
+            WaitUntilBlockedOrCompleted(second, thread!, guard);
         }
+        finally
+        {
+            time.Release.TrySetResult();
+        }
+
+        var firstFailure = await first.WaitAsync(guard);
+        var secondFailure = await second!.WaitAsync(guard);
+        await Assert.That(firstFailure).IsNull();
+        await Assert.That(secondFailure).IsTypeOf<InvalidOperationException>();
+        await Assert.That(secondFailure!.Message).Contains("already started");
+        await Assert.That(time.CreatedTimers.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -365,35 +299,27 @@ public class SecretsManagerPollingWatcherShould
         // act
         // worker A is inside CreateTimer, holding the watcher lock
         var start = Task.Run(() => watcher.StartWatching(provider));
-        await time.Entered.Task.WaitAsync(hangGuard);
-
-        // worker B reports its thread right before disposing
-        Thread? disposeThread = null;
-        var enteringDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dispose = startDispose(watcher, () =>
+        Task? dispose = null;
+        try
         {
-            disposeThread = Thread.CurrentThread;
-            enteringDispose.SetResult();
-        });
-
-        await enteringDispose.Task.WaitAsync(hangGuard);
-
-        // worker B either completes (no serialization) or blocks on the watcher lock; only then let worker A go on
-        var stopwatch = Stopwatch.StartNew();
-        var spinner = new SpinWait();
-        while (!dispose.IsCompleted && (disposeThread!.ThreadState & System.Threading.ThreadState.WaitSleepJoin) == 0)
-        {
-            if (stopwatch.Elapsed > hangGuard)
+            await time.Entered.Task.WaitAsync(hangGuard);
+            Thread? disposeThread = null;
+            var enteringDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            dispose = startDispose(watcher, () =>
             {
-                throw new TimeoutException("Dispose neither completed nor blocked on the watcher lock.");
-            }
-
-            spinner.SpinOnce(sleep1Threshold: -1);
+                disposeThread = Thread.CurrentThread;
+                enteringDispose.SetResult();
+            });
+            await enteringDispose.Task.WaitAsync(hangGuard);
+            WaitUntilBlockedOrCompleted(dispose, disposeThread!, hangGuard);
+        }
+        finally
+        {
+            time.Release.TrySetResult();
         }
 
-        time.Release.SetResult();
         await start.WaitAsync(TimeSpan.FromSeconds(10));
-        await dispose.WaitAsync(TimeSpan.FromSeconds(10));
+        await dispose!.WaitAsync(TimeSpan.FromSeconds(10));
 
         time.Inner.Advance(interval * 3);
 
@@ -402,6 +328,21 @@ public class SecretsManagerPollingWatcherShould
         await Assert.That(time.CreatedTimers[0].DisposeCalls).IsEqualTo(1);
         await Assert.That(provider.ReloadCalls).IsEqualTo(0);
         await Assert.That(() => watcher.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+    }
+
+    private static void WaitUntilBlockedOrCompleted(Task task, Thread thread, TimeSpan guard)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var spinner = new SpinWait();
+        while (!task.IsCompleted && (thread.ThreadState & System.Threading.ThreadState.WaitSleepJoin) == 0)
+        {
+            if (stopwatch.Elapsed > guard)
+            {
+                throw new TimeoutException("Worker neither completed nor blocked on the watcher lock.");
+            }
+
+            spinner.SpinOnce(sleep1Threshold: -1);
+        }
     }
 
     private static Exception? Capture(Action action)

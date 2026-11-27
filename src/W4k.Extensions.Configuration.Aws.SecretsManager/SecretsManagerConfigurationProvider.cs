@@ -27,6 +27,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     private readonly Lock _lock = new();
 
     private int _reloadInProgress;
+    private bool _watcherStarting;
     private bool _watcherStarted;
     private bool _disposed;
     private string? _currentSecretVersionId;
@@ -41,7 +42,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         ArgumentNullException.ThrowIfNull(source);
 
         _secretFetcher = new SecretFetcher(source.SecretsManager);
-        _watcher = source.CaptureConfigurationWatcher(out _ownsWatcher);
+        _watcher = source.ConfigurationWatcher;
+        _ownsWatcher = source.OwnsConfigurationWatcher;
         Source = source;
     }
 
@@ -85,10 +87,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// <remarks>
     /// Disposal is final and idempotent. The watcher is stopped only when the provider has started it,
     /// and disposed only when it has been created by the library (see <see cref="SecretsManagerConfigurationBuilder.WithPollingWatcher(TimeSpan)"/>).
-    /// A load or reload in progress is not awaited.
+    /// A load or reload in progress is not awaited. If watcher startup is in progress,
+    /// its starting thread releases the watcher when startup finishes.
     /// </remarks>
     public void Dispose()
     {
+        bool releaseWatcher;
         bool stopWatcher;
         lock (_lock)
         {
@@ -98,6 +102,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             }
 
             Volatile.Write(ref _disposed, true);
+            releaseWatcher = !_watcherStarting;
             stopWatcher = _watcherStarted;
         }
 
@@ -108,7 +113,10 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         finally
         {
-            ReleaseWatcher(stopWatcher);
+            if (releaseWatcher)
+            {
+                ReleaseWatcher(stopWatcher);
+            }
         }
     }
 
@@ -215,6 +223,12 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
             var secret = FetchSecret(secretName, secretVersion);
             activity?.SetTag(VersionIdTagName, secret.VersionId);
+
+            if (IsDisposed)
+            {
+                activity?.AddEvent(new ActivityEvent("disposed"));
+                return;
+            }
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
@@ -326,13 +340,35 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
         lock (_lock)
         {
-            if (_disposed || _watcherStarted)
+            if (_disposed || _watcherStarting || _watcherStarted)
             {
                 return;
             }
 
+            _watcherStarting = true;
+        }
+
+        var started = false;
+        try
+        {
             _watcher.StartWatching(this);
-            _watcherStarted = true;
+            started = true;
+        }
+        finally
+        {
+            bool releaseWatcher;
+            lock (_lock)
+            {
+                _watcherStarting = false;
+                _watcherStarted = started;
+                releaseWatcher = _disposed;
+            }
+
+            // Dispose defers release to this thread when it races startup.
+            if (releaseWatcher)
+            {
+                ReleaseWatcher(started);
+            }
         }
     }
 
