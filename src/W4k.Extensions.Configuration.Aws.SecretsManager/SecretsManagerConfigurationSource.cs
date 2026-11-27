@@ -164,7 +164,8 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
         _ownsConfigurationWatcher = isOwned;
 
         if (!_watcherCaptured
-            && wasOwned && !ReferenceEquals(previous, watcher)
+            && wasOwned
+            && !ReferenceEquals(previous, watcher)
             && previous is IDisposable disposable)
         {
             disposable.Dispose();
