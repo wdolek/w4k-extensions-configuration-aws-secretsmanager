@@ -73,14 +73,8 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     public void Dispose() => DetachTimer(markDisposed: true)?.Dispose();
 
     /// <inheritdoc/>
-    public async ValueTask DisposeAsync()
-    {
-        var timer = DetachTimer(markDisposed: true);
-        if (timer is not null)
-        {
-            await timer.DisposeAsync();
-        }
-    }
+    public ValueTask DisposeAsync() =>
+        DetachTimer(markDisposed: true)?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     /// <inheritdoc/>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="provider"/> is <see langword="null"/>.</exception>
