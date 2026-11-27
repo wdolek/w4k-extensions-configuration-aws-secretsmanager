@@ -92,7 +92,7 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// <exception cref="ArgumentOutOfRangeException">Thrown when value is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public TimeSpan Timeout
     {
-        get;
+        get => field;
         set
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
@@ -184,10 +184,8 @@ public sealed class SecretsManagerConfigurationBuilder
     /// Initializes a new instance of the <see cref="SecretsManagerConfigurationBuilder"/> class.
     /// </summary>
     /// <param name="secretName">Secret name (or its complete ARN) to fetch.</param>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="secretName"/> is <see langword="null"/> or consists only of white-space characters.</exception>
     public SecretsManagerConfigurationBuilder(string secretName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(secretName);
         _source = new SecretsManagerConfigurationSource { SecretName = secretName };
     }
 
@@ -313,11 +311,8 @@ public sealed class SecretsManagerConfigurationBuilder
     /// </summary>
     /// <param name="configurationKeyPrefix">Configuration key prefix.</param>
     /// <returns>Current builder instance.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationKeyPrefix"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithConfigurationKeyPrefix(string configurationKeyPrefix)
     {
-        ArgumentNullException.ThrowIfNull(configurationKeyPrefix);
-
         _source.ConfigurationKeyPrefix = configurationKeyPrefix;
         return this;
     }
