@@ -240,20 +240,22 @@ source.ClearKeyTransformers();
 
 ### Refreshing secrets
 
-By default, secrets are not refreshed. In order to enable refreshing, you can set configuration watcher:
+By default, secrets are not refreshed. In order to enable refreshing, configure a polling watcher:
 
 ```csharp
-// implements `IConfigurationWatcher`
+// uses library-managed `SecretsManagerPollingWatcher`
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    source => source.WithConfigurationWatcher(new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5)));
+    source => source.WithPollingWatcher(TimeSpan.FromMinutes(5)));
 ```
 
+Or provide a custom `IConfigurationWatcher` implementation:
+
 ```csharp
-// uses `SecretsManagerPollingWatcher`
+// implements `IConfigurationWatcher` (caller-owned)
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    source => source.WithPollingWatcher(TimeSpan.FromMinutes(5));
+    source => source.WithConfigurationWatcher(new MyCustomConfigurationWatcher()));
 ```
 
 When many instances poll at the same interval (a fleet of pods, for example), they can synchronize
@@ -273,6 +275,23 @@ Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manage
 
 > [!IMPORTANT]
 > Watcher is started **ONLY** when initial load is successful.
+
+#### Lifetime
+
+Disposing the configuration root (or the host owning it) disposes the provider, which stops the watcher and cancels a secret fetch in progress.
+Once disposed, the provider does not refresh anymore: `Reload()` is a no-op, `Load()` throws `ObjectDisposedException`.
+
+Who disposes the watcher itself depends on who created it:
+
+| Watcher set via                 | Owner   | On disposal           |
+|---------------------------------|---------|-----------------------|
+| `WithPollingWatcher(...)`       | library | stopped and disposed  |
+| `WithConfigurationWatcher(...)` | caller  | stopped, not disposed |
+| `ConfigurationWatcher` property | caller  | stopped, not disposed |
+
+Setting a watcher replaces any previously configured watcher on the source. Calling `WithConfigurationWatcher(...)` or assigning `ConfigurationWatcher` switches ownership to the caller. Polling watchers allocate their timers only when watching starts; replacing an unstarted watcher needs no resource cleanup. A watcher instance such as `SecretsManagerPollingWatcher` cannot be shared across multiple sources or providers — prefer `WithPollingWatcher(...)` when you want library-managed polling.
+
+The watcher is captured when the provider is created, changing `ConfigurationWatcher` afterwards has no effect.
 
 ### Last load state
 

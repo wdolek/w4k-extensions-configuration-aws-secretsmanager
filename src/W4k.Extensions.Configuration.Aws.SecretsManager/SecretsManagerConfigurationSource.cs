@@ -14,6 +14,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationSource : IConfigurationSource
 {
     private bool _built;
+    private IConfigurationWatcher? _configurationWatcher;
 
     /// <summary>
     /// Gets or sets secret name (or its complete ARN) to fetch.
@@ -71,7 +72,17 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// <summary>
     /// Gets or sets configuration change watcher.
     /// </summary>
-    public IConfigurationWatcher? ConfigurationWatcher { get; set; }
+    /// <remarks>
+    /// A watcher assigned here is owned by the caller: the provider stops it when it is disposed,
+    /// but does not dispose it. Assigning a watcher replaces any previously configured watcher.
+    /// The watcher is captured when the provider is created; changing this property afterwards
+    /// has no effect on an existing provider.
+    /// </remarks>
+    public IConfigurationWatcher? ConfigurationWatcher
+    {
+        get => _configurationWatcher;
+        set => SetConfigurationWatcher(value, isOwned: false);
+    }
 
     /// <summary>
     /// The timeout for the secret fetch operation.
@@ -133,6 +144,14 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
         KeyTransformersSnapshot = KeyTransformers.ToArray();
 
         return new SecretsManagerConfigurationProvider(this);
+    }
+
+    internal bool OwnsConfigurationWatcher { get; private set; }
+
+    internal void SetConfigurationWatcher(IConfigurationWatcher? watcher, bool isOwned)
+    {
+        _configurationWatcher = watcher;
+        OwnsConfigurationWatcher = isOwned;
     }
 }
 
@@ -283,13 +302,27 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <summary>
     /// Sets <see cref="IConfigurationWatcher"/> to watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A watcher passed here is owned by the caller: the provider calls
+    /// <see cref="IConfigurationWatcher.StopWatching"/> when disposed, but does not dispose the watcher itself.
+    /// </para>
+    /// <para>
+    /// Calling this method replaces any previously configured watcher on the source and switches ownership to the caller.
+    /// </para>
+    /// <para>
+    /// Watcher instances such as <see cref="SecretsManagerPollingWatcher"/> are bound to a single provider
+    /// and must not be shared across multiple sources; prefer <see cref="WithPollingWatcher(TimeSpan)"/>
+    /// for library-managed polling.
+    /// </para>
+    /// </remarks>
     /// <param name="configurationWatcher">Configuration watcher.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationWatcher"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithConfigurationWatcher(IConfigurationWatcher configurationWatcher)
     {
         ArgumentNullException.ThrowIfNull(configurationWatcher);
-        _source.ConfigurationWatcher = configurationWatcher;
+        _source.SetConfigurationWatcher(configurationWatcher, isOwned: false);
 
         return this;
     }
@@ -297,18 +330,26 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval);
+        _source.SetConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval), isOwned: true);
         return this;
     }
 
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="timeProvider">Time provider.</param>
     /// <returns>Current builder instance.</returns>
@@ -316,26 +357,34 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeProvider timeProvider)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, timeProvider);
+        _source.SetConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval, timeProvider), isOwned: true);
         return this;
     }
 
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter);
+        _source.SetConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval, maxJitter), isOwned: true);
         return this;
     }
 
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The created <see cref="SecretsManagerPollingWatcher"/> is owned by the library and is stopped and disposed
+    /// when the configuration provider is disposed. Calling this method replaces any previously configured watcher.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
     /// <param name="timeProvider">Time provider.</param>
@@ -344,7 +393,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter, TimeProvider timeProvider)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider);
+        _source.SetConfigurationWatcher(new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider), isOwned: true);
         return this;
     }
 

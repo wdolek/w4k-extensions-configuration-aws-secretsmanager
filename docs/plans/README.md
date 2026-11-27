@@ -35,12 +35,11 @@ unrelated tasks into one commit.
 
 - The package targets `net10.0;net11.0` (see
   [ADR-0018](../adr/0018-target-frameworks-v3.md)) and has
-  `EnablePackageValidation` with `PackageValidationBaselineVersion=2.4.0`
-  (the last 2.x release; v3.0.0 dropped the out-of-support `net8.0` and
-  `net9.0` targets).
-  Any public API removal or signature change needs either a major version bump
-  or an entry in `CompatibilitySuppressions.xml` (which does not exist yet —
-  create it via `dotnet pack /p:GenerateCompatibilitySuppressionFile=true`).
+  `EnablePackageValidation` with `PackageValidationBaselineVersion` set to
+  the latest published release.
+  Any public API removal or signature change needs a major version bump,
+  plus an entry in `CompatibilitySuppressions.xml` for each intended break
+  (generate it via `dotnet pack /p:GenerateCompatibilitySuppressionFile=true`).
 - Tasks tagged **`v3`** must not ship in a 2.x release. With the 3.0.0 major
   bump already taken by the target-framework change, `v3`-tagged tasks are
   no longer blocked by versioning.

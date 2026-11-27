@@ -382,3 +382,44 @@ Call it out in release notes.
   (e.g. `[0xC3, 0x28]`) throws; valid UTF-8 payload still decodes.
 - Integration test optional (a `SecretBinary` secret with non-UTF-8 bytes),
   follows the C1 pattern.
+
+---
+
+## C8. Disposing the configuration does not stop the watcher
+
+**Status:** done · **Breaking:** behavioural (refresh stops on disposal) · **Effort:** M
+**Decision:** [ADR-0019](../adr/0019-provider-disposal-stops-its-watcher.md)
+
+### Why
+
+`SecretsManagerConfigurationProvider` did not own a disposal path, so its
+polling watcher could outlive the configuration root and call services after
+the host had disposed them.
+
+### Implemented
+
+- Provider implements `IDisposable`; watcher and ownership are captured in its
+  constructor. Source assignment replaces both watcher and ownership.
+- Only a successfully started watcher is stopped; only a library-created
+  watcher is disposed. Polling timers are created only by `StartWatching()`.
+- Watcher startup runs outside the provider lock. Disposal cancels first and
+  defers watcher cleanup to the starting thread when startup is in progress;
+  cleanup runs in `finally`.
+- Data publication is synchronized with disposal. `Reload()` after disposal is
+  a no-op; `Load()` throws. Repeated loads start the watcher only once, and the
+  reload overlap guard is reset on failure.
+- Late changed or unchanged fetch results are discarded after disposal.
+  Ordinary diagnostics and listener behavior are preserved, not hardened.
+
+### Verification
+
+- Tests cover ownership, startup/disposal races, publication, late fetches,
+  post-disposal calls, and polling shutdown.
+- Run `dotnet build W4k.Extensions.Configuration.Aws.SecretsManager.sln`,
+  `dotnet test --project tests/W4k.Extensions.Configuration.Aws.SecretsManager.Tests`,
+  and `dotnet pack src/W4k.Extensions.Configuration.Aws.SecretsManager -c Release`.
+
+### Release notes
+
+- Disposing configuration now stops refresh; caller-supplied watchers receive
+  `StopWatching()` on provider disposal.

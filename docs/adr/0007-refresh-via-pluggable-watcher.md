@@ -66,3 +66,11 @@ public interface IConfigurationWatcher
 - `SecretsManagerPollingWatcher` implements `IDisposable`/`IAsyncDisposable`, but
   the configuration system does not dispose sources, so long-lived hosts keep the
   timer for the process lifetime — which is the intended behaviour.
+
+> **Amendment (see [ADR-0019](0019-provider-disposal-stops-its-watcher.md)):**
+> the configuration system does dispose *providers* that implement
+> `IDisposable`, and the provider now does. Disposing the configuration root
+> stops the watcher the provider started, and disposes it when the library
+> created it (`WithPollingWatcher`); caller-supplied watchers are stopped but
+> stay caller-owned. The watcher is captured when the provider is created and
+> started at most once per provider.

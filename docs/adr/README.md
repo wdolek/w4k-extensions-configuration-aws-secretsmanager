@@ -40,6 +40,7 @@ Three constraints shape almost every decision in this library:
 | [0016](0016-do-not-tag-secrets-with-their-arn.md) | Do not tag secrets with their ARN | Accepted |
 | [0017](0017-binary-secret-decode-failures-omit-the-payload.md) | Binary secret decode failures omit the payload | Accepted |
 | [0018](0018-target-frameworks-v3.md) | Target frameworks for v3: net10.0 and net11.0 | Accepted |
+| [0019](0019-provider-disposal-stops-its-watcher.md) | Provider disposal stops its watcher | Accepted |
 
 ## Format
 
