@@ -76,13 +76,10 @@ provider started the watcher; a library-owned watcher is disposed either way.
   published at all. `Data`, `CurrentVersionId` and `LastLoadedAt` are never
   changed by `Load()` or `Reload()` after `Dispose()` returns. (The inherited
   public `Set()` remains the caller's business.)
-- Every other step of a load or reload — success and skip diagnostics,
-  failure logging and counting, the `OnLoadException` / `OnReloadException`
-  callbacks — checks for disposal just before it runs, and is skipped once
-  the provider is disposed. A late failure is therefore ignored whatever
-  caused it: the cancelled fetch, an AWS client or logger factory the host
-  has already disposed, or an unrelated error. The activity, if any, records
-  a `disposed` event instead.
+- Failure handling checks for disposal (`when (IsDisposed)`), so a late
+  failure is ignored whatever caused it: the cancelled fetch, an AWS client
+  or logger factory the host has already disposed, or an unrelated error. The
+  activity, if any, records a `disposed` event instead.
 - A step that already started before disposal finishes, so reporting can
   overlap `Dispose()`: a failure observed just before disposal is still
   logged and passed to its callback, and the change notifications of data
@@ -101,12 +98,11 @@ provider started the watcher; a library-owned watcher is disposed either way.
   Cancelling first matters: a custom watcher's `StopWatching()` may wait for
   its own worker, and that worker may be the reload blocked on the fetch.
   Each step runs even if the previous one throws; the exception propagates.
-- The provider calls no watcher method while holding a lock and never waits
-  for a load or reload itself, so `Dispose()` may be called from any thread —
-  including from a change-token callback raised by the reload, or from inside
-  the watcher's `StartWatching`. If disposal happens while the watcher is
-  being started, the starting thread stops it as soon as `StartWatching`
-  returns.
+- `Dispose()` never calls `StopWatching()` or `_disposeCts.Cancel()` while
+  holding a lock and never waits for a load or reload fetch, so it may be
+  called from any thread — including from a change-token callback raised by
+  the reload. Watcher start and disposal serialize on the provider lock so a
+  watcher cannot start after disposal.
 - `Dispose()` can still block in code it does not own: cancellation callbacks
   the AWS client registered on the fetch token, and `StopWatching()` of a
   caller-owned watcher, run synchronously.
@@ -145,8 +141,6 @@ isolation is not a goal.
   disposal, or the log entry and `OnReloadException` call for a failure
   observed just before it. A fetch that is still running is only cancelled,
   never awaited.
-- A reload whose change notification disposes the provider publishes its
-  data but skips its success counter and log entry.
 - Late outcomes are ignored regardless of their cause, so a genuine secret
   failure that happens to complete after disposal goes unreported. The
   configuration is gone, so there is no one left to act on it.

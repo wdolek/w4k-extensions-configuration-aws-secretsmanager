@@ -450,22 +450,16 @@ with `isOwned: false`.
 public sealed class SecretsManagerConfigurationProvider
     : ConfigurationProvider, ISecretsManagerConfigurationProvider, IDisposable
 {
-    private const int WatcherIdle = 0, WatcherStarting = 1, WatcherStarted = 2, WatcherReleased = 3;
-
     private readonly IConfigurationWatcher? _watcher;   // captured in ctor
     private readonly bool _ownsWatcher;                 // captured in ctor
-    private readonly CancellationTokenSource _disposeCts = new(); // see "CTS" below
-    private readonly Lock _lock = new();                // protects _disposed, _watcherState and data publication
-    private int _watcherState;
+    private readonly CancellationTokenSource _disposeCts = new(); // never disposed, only cancelled
+    private readonly Lock _lock = new();                // protects _disposed, _watcherStarted and data publication
+    private bool _watcherStarted;
     private bool _disposed;
 
     private bool IsDisposed => Volatile.Read(ref _disposed);
 }
 ```
-
-No watcher method, no callback and no logging ever runs while `_lock` is held.
-The lock only protects `_disposed`, `_watcherState` transitions and the data
-assignment.
 
 #### 3. Provider: publication boundary
 
@@ -485,10 +479,7 @@ private bool TryPublish(string versionId, Dictionary<string, string?> data)
 ```
 
 `SetData` is replaced by `TryPublish` followed by `OnReload()` outside the
-lock. Everything else (diagnostics, failure reporting) is gated by a plain
-`IsDisposed` check just before it runs — no lock, no "outcome" bookkeeping.
-A step that passed its check may overlap disposal; that is accepted
-(ADR-0019).
+lock, so a change callback calling `Dispose()` cannot deadlock.
 
 #### 4. Provider: `Load()` and `Reload()`
 
@@ -499,19 +490,15 @@ A step that passed its check may overlap disposal; that is accepted
 - `Load()` throws `ObjectDisposedException` at entry if already disposed, and
   after `try/catch` if `!published && IsDisposed` (with no inner exception).
 - `Reload()` returns immediately if `IsDisposed` or already in progress, and
-  resets `_reloadInProgress` in an outer `try/finally` covering the whole body
-  (including `using var activity` and logger creation).
+  resets `_reloadInProgress` in an outer `try/finally` covering `ReloadCore()`.
 
-#### 5. Provider: watcher start / release and `Dispose()`
+#### 5. Provider: watcher start and `Dispose()`
 
-`StartWatcherOnce()` and `Dispose()` coordinate `_disposed` and
-`_watcherState` under `_lock`, releasing the lock before invoking
-`_watcher.StartWatching`, `_watcher.StopWatching`, or `IDisposable.Dispose`.
-If `Dispose()` runs while `_watcherState == WatcherStarting`, it leaves
-cleanup to `StartWatcherOnce()`'s `finally`, which stops (only if
-`StartWatching` succeeded) and disposes an owned watcher as soon as
-`StartWatching` finishes. `Dispose()` always cancels `_disposeCts` before
-releasing the watcher.
+`StartWatcherOnce()` checks `_disposed || _watcherStarted` under `_lock`,
+starts the watcher, and sets `_watcherStarted = true`. `Dispose()` marks
+`_disposed = true` and reads `stopWatcher = _watcherStarted` under `_lock`,
+then outside `_lock` cancels `_disposeCts` and in `finally` stops (if started)
+and disposes (if owned) the watcher.
 
 #### 6. Polling watcher
 

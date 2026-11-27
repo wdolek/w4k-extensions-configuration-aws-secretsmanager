@@ -18,12 +18,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     private const string SecretIdTagName = "aws.secretsmanager.secret.id";
     private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
 
-    // watcher lifecycle: Idle -> Starting -> Started -> Released, or Idle -> Released
-    private const int WatcherIdle = 0;
-    private const int WatcherStarting = 1;
-    private const int WatcherStarted = 2;
-    private const int WatcherReleased = 3;
-
     private readonly SecretFetcher _secretFetcher;
     private readonly IConfigurationWatcher? _watcher;
     private readonly bool _ownsWatcher;
@@ -33,7 +27,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     private readonly Lock _lock = new();
 
     private int _reloadInProgress;
-    private int _watcherState;
+    private bool _watcherStarted;
     private bool _disposed;
     private string? _currentSecretVersionId;
     private long _lastLoadedUtcTicks;
@@ -95,6 +89,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// </remarks>
     public void Dispose()
     {
+        bool stopWatcher;
         lock (_lock)
         {
             if (_disposed)
@@ -103,6 +98,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             }
 
             Volatile.Write(ref _disposed, true);
+            stopWatcher = _watcherStarted;
         }
 
         try
@@ -112,24 +108,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
         finally
         {
-            bool release;
-            bool stop;
-
-            lock (_lock)
-            {
-                // if WatcherStarting, StartWatcherOnce() releases the watcher once StartWatching() finishes
-                release = _watcherState is WatcherIdle or WatcherStarted;
-                stop = _watcherState == WatcherStarted;
-                if (release)
-                {
-                    _watcherState = WatcherReleased;
-                }
-            }
-
-            if (release)
-            {
-                ReleaseWatcher(stop);
-            }
+            ReleaseWatcher(stopWatcher);
         }
     }
 
@@ -171,18 +150,11 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             {
                 OnReload();
 
-                if (IsDisposed)
-                {
-                    activity?.AddEvent(new ActivityEvent("disposed"));
-                }
-                else
-                {
-                    activity?
-                        .AddEvent(new ActivityEvent("loaded"))
-                        .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
+                activity?
+                    .AddEvent(new ActivityEvent("loaded"))
+                    .SetStatus(ActivityStatusCode.Ok, "Secret loaded");
 
-                    logger.SecretLoaded(secretName, secret.VersionId);
-                }
+                logger.SecretLoaded(secretName, secret.VersionId);
 
                 // requires initial load to succeed (even when secret is optional)
                 StartWatcherOnce();
@@ -247,12 +219,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
             {
-                if (IsDisposed)
-                {
-                    activity?.AddEvent(new ActivityEvent("disposed"));
-                    return;
-                }
-
                 MeterDescriptors.ReloadsSkipped.Add(1, secretIdTag);
 
                 activity?
@@ -271,12 +237,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             }
 
             OnReload();
-
-            if (IsDisposed)
-            {
-                activity?.AddEvent(new ActivityEvent("disposed"));
-                return;
-            }
 
             MeterDescriptors.Reloads.Add(1, secretIdTag);
 
@@ -366,40 +326,13 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
         lock (_lock)
         {
-            if (_disposed || _watcherState != WatcherIdle)
+            if (_disposed || _watcherStarted)
             {
                 return;
             }
 
-            _watcherState = WatcherStarting;
-        }
-
-        var started = false;
-        try
-        {
             _watcher.StartWatching(this);
-            started = true;
-        }
-        finally
-        {
-            var release = false;
-            lock (_lock)
-            {
-                if (_disposed)
-                {
-                    _watcherState = WatcherReleased;
-                    release = true;
-                }
-                else
-                {
-                    _watcherState = started ? WatcherStarted : WatcherIdle;
-                }
-            }
-
-            if (release)
-            {
-                ReleaseWatcher(stop: started);
-            }
+            _watcherStarted = true;
         }
     }
 

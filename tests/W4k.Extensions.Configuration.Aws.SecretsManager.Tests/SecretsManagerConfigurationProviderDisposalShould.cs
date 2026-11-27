@@ -590,28 +590,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
 
     #endregion
 
-    #region Re-entrancy and races with the watcher start
-
-    [Test]
-    public async Task StopWatcherAfterStartReturnsWhenDisposedFromWithinStart()
-    {
-        // arrange
-        SecretsManagerConfigurationProvider? provider = null;
-        var watcher = new RecordingWatcher { OnStart = _ => provider!.Dispose() };
-
-        var source = NewSource(ConstantClient(FirstSecret));
-        source.ConfigurationWatcher = watcher;
-        provider = new SecretsManagerConfigurationProvider(source);
-
-        // act
-        await Assert.That(() => provider.Load()).ThrowsNothing();
-
-        // assert
-        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
-        await Assert.That(watcher.StartCalls).IsEqualTo(1);
-        await Assert.That(watcher.StopCalls).IsEqualTo(1);
-        await Assert.That(watcher.StopSawStartReturned).IsTrue();
-    }
+    #region Races with the watcher start
 
     [Test]
     public async Task StopWatcherAfterStartReturnsWhenDisposedWhileStarting()
@@ -636,11 +615,11 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await entered.Task.WaitAsync(HangGuard);
 
         // act
-        await Task.Run(provider.Dispose).WaitAsync(HangGuard);
-        await Assert.That(watcher.StopCalls).IsEqualTo(0);
-
+        var dispose = Task.Run(provider.Dispose);
         release.SetResult();
+
         var loadFailure = await ObserveAsync(load);
+        await dispose.WaitAsync(HangGuard);
 
         // assert
         await Assert.That(loadFailure).IsNull();
@@ -650,7 +629,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task NotStopWatcherWhenStartFailsAfterDisposal()
+    public async Task NotStopWatcherWhenStartFailsWhileDisposing()
     {
         // arrange
         var entered = NewGate();
@@ -673,14 +652,18 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await entered.Task.WaitAsync(HangGuard);
 
         // act
-        await Task.Run(provider.Dispose).WaitAsync(HangGuard);
-        await Assert.That(watcher.DisposeCalls).IsEqualTo(0);
-
+        var dispose = Task.Run(provider.Dispose);
         release.SetResult();
+
         var loadFailure = await ObserveAsync(load);
+        await dispose.WaitAsync(HangGuard);
 
         // assert
-        await Assert.That(loadFailure).IsNull();
+        if (loadFailure is not null)
+        {
+            await Assert.That(loadFailure).IsTypeOf<SecretRetrievalException>();
+        }
+
         await Assert.That(watcher.StopCalls).IsEqualTo(0);
         await Assert.That(watcher.DisposeCalls).IsEqualTo(1);
         await Assert.That(() => provider.Load()).ThrowsExactly<ObjectDisposedException>();
@@ -760,7 +743,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
     #region Disposal during reload
 
     [Test]
-    public async Task PublishDataButSkipSuccessDiagnosticsWhenReloadTokenCallbackDisposesProvider()
+    public async Task PublishDataWithoutDeadlockWhenReloadTokenCallbackDisposesProvider()
     {
         // arrange
         var secretName = NewSecretName();
@@ -774,7 +757,13 @@ public class SecretsManagerConfigurationProviderDisposalShould
         var provider = new SecretsManagerConfigurationProvider(source);
         provider.Load();
 
-        _ = provider.GetReloadToken().RegisterChangeCallback(_ => provider.Dispose(), null);
+        _ = provider.GetReloadToken().RegisterChangeCallback(
+            _ =>
+            {
+                loggers.ThrowOnLog = true;
+                provider.Dispose();
+            },
+            null);
 
         // act
         await Assert.That(() => provider.Reload()).ThrowsNothing();
@@ -783,8 +772,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(provider.CurrentVersionId).IsEqualTo(SecondVersion);
         await Assert.That(provider.TryGet("Key", out var value)).IsTrue();
         await Assert.That(value).IsEqualTo("two");
-        await Assert.That(loggers.Events).DoesNotContain("SecretReloaded");
-        await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.reloads", secretName)).IsEqualTo(0);
         await Assert.That(metrics.CountMeasurements("w4k.secretsmanager.reloads.failed", secretName)).IsEqualTo(0);
     }
 
@@ -1021,7 +1008,7 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task ReturnNormallyAndSkipSuccessLoggingWhenChangeNotificationDisposesProviderDuringLoad()
+    public async Task ReturnNormallyWhenChangeNotificationDisposesProviderAndLoggerThrowsDuringLoad()
     {
         // arrange
         var secretName = NewSecretName();
@@ -1043,7 +1030,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
         await Assert.That(provider.TryGet("Key", out var value)).IsTrue();
         await Assert.That(value).IsEqualTo("one");
-        await Assert.That(loggers.Events).DoesNotContain("SecretLoaded");
         await Assert.That(watcher.StartCalls).IsEqualTo(0);
         await Assert.That(watcher.StopCalls).IsEqualTo(0);
 
