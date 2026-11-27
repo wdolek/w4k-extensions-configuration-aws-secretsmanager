@@ -450,23 +450,22 @@ with `isOwned: false`.
 public sealed class SecretsManagerConfigurationProvider
     : ConfigurationProvider, ISecretsManagerConfigurationProvider, IDisposable
 {
-    // watcher lifecycle: Idle -> Starting -> Started -> Released, or Idle -> Released
     private const int WatcherIdle = 0, WatcherStarting = 1, WatcherStarted = 2, WatcherReleased = 3;
 
     private readonly IConfigurationWatcher? _watcher;   // captured in ctor
     private readonly bool _ownsWatcher;                 // captured in ctor
     private readonly CancellationTokenSource _disposeCts = new(); // see "CTS" below
-    private readonly Lock _publishLock = new();         // makes "publish" and "mark disposed" mutually exclusive
+    private readonly Lock _lock = new();                // protects _disposed, _watcherState and data publication
     private int _watcherState;
-    private int _disposed;
+    private bool _disposed;
 
-    private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+    private bool IsDisposed => Volatile.Read(ref _disposed);
 }
 ```
 
-No watcher method, no callback and no logging ever runs while
-`_publishLock` is held. The lock only protects the disposed flag transition
-and the data assignment.
+No watcher method, no callback and no logging ever runs while `_lock` is held.
+The lock only protects `_disposed`, `_watcherState` transitions and the data
+assignment.
 
 #### 3. Provider: publication boundary
 
@@ -474,9 +473,9 @@ and the data assignment.
 // publishes data unless disposed; never calls OnReload() itself
 private bool TryPublish(string versionId, Dictionary<string, string?> data)
 {
-    lock (_publishLock)
+    lock (_lock)
     {
-        if (_disposed != 0) return false;
+        if (_disposed) return false;
         Volatile.Write(ref _currentSecretVersionId, versionId);
         Volatile.Write(ref _lastLoadedUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
         Data = data;
@@ -491,160 +490,30 @@ lock. Everything else (diagnostics, failure reporting) is gated by a plain
 A step that passed its check may overlap disposal; that is accepted
 (ADR-0019).
 
-#### 4. Provider: `Load()`
+#### 4. Provider: `Load()` and `Reload()`
 
-```text
-ObjectDisposedException.ThrowIf(IsDisposed, this)
-Activity? activity = null; ILogger? logger = null
-published = false; discarded = false
-try
-    activity = StartActivity(...); tag          // listener callbacks: consumer code, may throw
-    Loads.Add                                   // meter callbacks: consumer code, may throw
-    logger = Source.LoggerFactory.CreateLogger(...)
-    fetch with CreateFetchCancellation(); tag version; process data
-    published = TryPublish(...)
-    if !published: discarded = true; activity event "disposed"
-    else
-        OnReload()
-        if !IsDisposed: activity ok, logger.SecretLoaded
-        StartWatcherOnce()                      // as today: a start failure follows the load failure path
-catch (Exception) when (IsDisposed)
-    activity event "disposed"; discarded = !published   // late failure: ignored; published load still returns normally
-catch (Exception ex)
-    (existing) LoadFailures.Add, activity error, logger?.FailedToLoadSecret, HandleException(OnLoadException)
-finally
-    DisposeActivity(activity)
-if discarded: throw new ObjectDisposedException(GetType().FullName)
+- Both keep standard `using var activity = ...`, create `logger` inside `try`,
+  fetch via a shared `FetchSecret(...)` helper using a linked CTS with
+  `using var cts` + `cts.CancelAfter(Source.Timeout)`, and ignore late failures
+  via `catch (Exception) when (IsDisposed)`.
+- `Load()` throws `ObjectDisposedException` at entry if already disposed, and
+  after `try/catch` if `!published && IsDisposed` (with no inner exception).
+- `Reload()` returns immediately if `IsDisposed` or already in progress, and
+  resets `_reloadInProgress` in an outer `try/finally` covering the whole body
+  (including `using var activity` and logger creation).
 
-DisposeActivity(activity):                      // Activity.Dispose() runs ActivityStopped listeners: consumer code
-    try activity?.Dispose()
-    catch (Exception) when (IsDisposed): ignore  // late failure, same policy as above; otherwise propagates as today
-```
+#### 5. Provider: watcher start / release and `Dispose()`
 
-If the provider is disposed by an `ActivityStopped` listener, a published
-load still returns normally and an unpublished one still throws
-`ObjectDisposedException`, because `discarded` was decided before cleanup.
+`StartWatcherOnce()` and `Dispose()` coordinate `_disposed` and
+`_watcherState` under `_lock`, releasing the lock before invoking
+`_watcher.StartWatching`, `_watcher.StopWatching`, or `IDisposable.Dispose`.
+If `Dispose()` runs while `_watcherState == WatcherStarting`, it leaves
+cleanup to `StartWatcherOnce()`'s `finally`, which stops (only if
+`StartWatching` succeeded) and disposes an owned watcher as soon as
+`StartWatching` finishes. `Dispose()` always cancels `_disposeCts` before
+releasing the watcher.
 
-- The `ObjectDisposedException` carries **no** inner exception (the late
-  failure may be an SDK/processor exception; see ADR-0017).
-- If logger creation failed, `logger` is `null` in the catch — use `logger?.`.
-- The `when (IsDisposed)` filter is evaluated when the exception is caught; a
-  failure observed before disposal is reported even if reporting overlaps
-  `Dispose()` (accepted, ADR-0019).
-
-#### 5. Provider: `Reload()`
-
-```text
-if IsDisposed: return                           // nothing at all: no activity, log, metric
-if Interlocked.Exchange(ref _reloadInProgress, 1) == 1: return
-try
-    Activity? activity = null; ILogger? logger = null
-    try
-        activity = StartActivity(...); tag
-        logger = CreateLogger(...)
-        fetch with CreateFetchCancellation(); tag version
-        if version unchanged:
-            if IsDisposed: activity event "disposed"; return
-            ReloadsSkipped.Add, activity ok, logger.SecretAlreadyLoaded; return
-        data = process
-        if !TryPublish(...): activity event "disposed"; return
-        OnReload()
-        if IsDisposed: activity event "disposed"; return     // a change callback disposed us: data is published, skip success diagnostics
-        Reloads.Add, activity ok, logger.SecretRefreshed
-    catch (Exception) when (IsDisposed)
-        activity event "disposed"                            // late failure: ignored
-    catch (Exception ex)
-        (existing) ReloadFailures.Add, activity error, logger?.FailedToRefreshSecret, HandleException(OnReloadException)
-    finally
-        DisposeActivity(activity)                            // see §4: late listener failure ignored
-finally
-    reset _reloadInProgress                                  // outermost: runs even if activity cleanup throws
-```
-
-Change-callback exceptions from `OnReload()` keep today's semantics (they are
-reload failures routed to `OnReloadException`), unless the provider was
-disposed by then.
-
-#### 6. Provider: fetch cancellation
-
-```csharp
-private CancellationTokenSource CreateFetchCancellation()
-{
-    var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
-    try
-    {
-        cts.CancelAfter(Source.Timeout);   // throws for timeouts beyond ~49.7 days
-    }
-    catch
-    {
-        cts.Dispose();                     // unregister from _disposeCts before rethrowing
-        throw;
-    }
-
-    return cts;
-}
-```
-
-Used by both `Load()` and `Reload()` with `using var`. **CTS:** `_disposeCts`
-has no timer and is cancelled but deliberately never disposed, so reading
-`.Token` can never race `Dispose()`. If CA2213 fires, suppress it narrowly with
-that justification.
-
-#### 7. Provider: watcher start / release
-
-```text
-StartWatcherOnce():
-    if _watcher is null: return
-    if CAS(_watcherState, Starting, Idle) != Idle: return       // already starting/started/released
-    try   _watcher.StartWatching(this)
-    catch CAS(_watcherState, Idle, Starting); if IsDisposed: ReleaseWatcher(); throw
-    CAS(_watcherState, Started, Starting)
-    if IsDisposed: ReleaseWatcher()                              // disposal raced the start
-
-ReleaseWatcher():                                                // may be called by Dispose and by StartWatcherOnce
-    loop on state:
-        Idle     -> CAS to Released; on success: dispose owned watcher; return
-        Starting -> return                                       // the starting thread releases after StartWatching returns
-        Started  -> CAS to Released; on success: try StopWatching() finally dispose owned watcher; return
-        Released -> return
-```
-
-All transitions use `Interlocked`, so `Dispose` (writes `_disposed`, then
-reads `_watcherState`) and the starting thread (writes `_watcherState`, then
-reads `_disposed`) always see at least one of the two writes. Exactly one
-caller wins the transition to `Released`, so the watcher is stopped and
-disposed at most once.
-
-#### 8. Provider: `Dispose()`
-
-```csharp
-public void Dispose()
-{
-    lock (_publishLock)
-    {
-        if (_disposed != 0) return;
-        Volatile.Write(ref _disposed, 1);
-    }
-
-    try
-    {
-        _disposeCts.Cancel();      // abort an in-flight fetch first: a custom StopWatching() may join a
-                                   // worker that is blocked in that fetch
-    }
-    finally
-    {
-        ReleaseWatcher();          // then stop refresh; runs even if a cancellation callback threw
-    }
-}
-```
-
-The provider never joins a load or reload and calls no watcher method under a
-lock. `Dispose()` called from inside a change callback (same thread as the
-reload) or from inside `StartWatching` completes and the outer frame
-reconciles. It can still block in code it does not own: AWS client
-cancellation callbacks and a caller-owned `StopWatching()`.
-
-#### 9. Polling watcher
+#### 6. Polling watcher
 
 Add `private readonly Lock _lock = new()` and `private bool _disposed`;
 `_timer` is only read or written under `_lock`.

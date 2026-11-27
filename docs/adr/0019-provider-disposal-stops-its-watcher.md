@@ -80,9 +80,9 @@ provider started the watcher; a library-owned watcher is disposed either way.
   failure logging and counting, the `OnLoadException` / `OnReloadException`
   callbacks — checks for disposal just before it runs, and is skipped once
   the provider is disposed. A late failure is therefore ignored whatever
-  caused it: the cancelled fetch, an AWS client, logger factory or activity
-  listener the host has already disposed, or an unrelated error. The
-  activity, if any, records a `disposed` event instead.
+  caused it: the cancelled fetch, an AWS client or logger factory the host
+  has already disposed, or an unrelated error. The activity, if any, records
+  a `disposed` event instead.
 - A step that already started before disposal finishes, so reporting can
   overlap `Dispose()`: a failure observed just before disposal is still
   logged and passed to its callback, and the change notifications of data

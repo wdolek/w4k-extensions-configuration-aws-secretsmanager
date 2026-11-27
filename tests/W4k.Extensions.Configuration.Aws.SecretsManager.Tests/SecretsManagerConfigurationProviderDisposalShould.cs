@@ -982,14 +982,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task ThrowObjectDisposedWhenIgnoredLoadFailureIsFollowedByActivityStoppedListenerDisposingAndThrowing() =>
-        await AssertIgnoredLoadFailureFollowedByDisposingListenerThrowsObjectDisposed(listenerThrows: true);
-
-    [Test]
-    public async Task ThrowObjectDisposedWhenIgnoredLoadFailureIsFollowedByActivityStoppedListenerDisposing() =>
-        await AssertIgnoredLoadFailureFollowedByDisposingListenerThrowsObjectDisposed(listenerThrows: false);
-
-    [Test]
     public async Task ThrowObjectDisposedWithoutInnerExceptionWhenLoadInFlightDuringDispose()
     {
         // arrange
@@ -1128,92 +1120,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
     }
 
     [Test]
-    public async Task IgnoreActivityStartedListenerFailureWhenListenerDisposesProvider()
-    {
-        // arrange
-        ListenerScope.Value = new object();
-
-        var client = new FakeSecretsClient((call, _) => Task.FromResult(call == 1 ? FirstSecret : SecondSecret));
-        var provider = new SecretsManagerConfigurationProvider(NewSource(client));
-        provider.Load();
-
-        using var listener = StartActivityListener(
-            out _,
-            onStarted: activity =>
-            {
-                if (activity.OperationName == ActivityDescriptors.ReloadActivityName)
-                {
-                    provider.Dispose();
-                    throw new InvalidOperationException("listener failed");
-                }
-            });
-
-        // act
-        await Assert.That(() => provider.Reload()).ThrowsNothing();
-
-        // assert
-        await Assert.That(GetReloadGuard(provider)).IsEqualTo(0);
-        await Assert.That(client.Calls).IsEqualTo(1);
-    }
-
-    [Test]
-    public async Task IgnoreActivityStoppedListenerFailureWhenListenerDisposesProviderDuringReload()
-    {
-        // arrange
-        ListenerScope.Value = new object();
-
-        var client = new FakeSecretsClient((call, _) => Task.FromResult(call == 1 ? FirstSecret : SecondSecret));
-        var provider = new SecretsManagerConfigurationProvider(NewSource(client));
-        provider.Load();
-
-        using var listener = StartActivityListener(
-            out _,
-            onStopped: activity =>
-            {
-                if (activity.OperationName == ActivityDescriptors.ReloadActivityName)
-                {
-                    provider.Dispose();
-                    throw new InvalidOperationException("listener failed");
-                }
-            });
-
-        // act
-        await Assert.That(() => provider.Reload()).ThrowsNothing();
-
-        // assert: data was published before the listener ran
-        await Assert.That(GetReloadGuard(provider)).IsEqualTo(0);
-        await Assert.That(provider.CurrentVersionId).IsEqualTo(SecondVersion);
-    }
-
-    [Test]
-    public async Task ReturnNormallyFromPublishedLoadWhenActivityStoppedListenerDisposesProvider()
-    {
-        // arrange
-        ListenerScope.Value = new object();
-
-        var provider = new SecretsManagerConfigurationProvider(NewSource(ConstantClient(FirstSecret)));
-
-        using var listener = StartActivityListener(
-            out _,
-            onStopped: activity =>
-            {
-                if (activity.OperationName == ActivityDescriptors.LoadActivityName)
-                {
-                    provider.Dispose();
-                    throw new InvalidOperationException("listener failed");
-                }
-            });
-
-        // act
-        await Assert.That(() => provider.Load()).ThrowsNothing();
-
-        // assert
-        await Assert.That(provider.CurrentVersionId).IsEqualTo(FirstVersion);
-        await Assert.That(provider.TryGet("Key", out var value)).IsTrue();
-        await Assert.That(value).IsEqualTo("one");
-    }
-
-    [Test]
     public async Task ResetReloadGuardWhenActivityStoppedListenerFails()
     {
         // arrange
@@ -1297,46 +1203,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
 
         // assert
         await Assert.That(() => watcher!.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
-    }
-
-    private static async Task AssertIgnoredLoadFailureFollowedByDisposingListenerThrowsObjectDisposed(bool listenerThrows)
-    {
-        // arrange
-        ListenerScope.Value = new object();
-
-        var loadFailures = 0;
-        var client = new FakeSecretsClient((_, _) => throw new InvalidOperationException("fetch fails"));
-        var source = NewSource(client);
-        source.OnLoadException = ctx =>
-        {
-            Interlocked.Increment(ref loadFailures);
-            ctx.Ignore = true;
-        };
-
-        var provider = new SecretsManagerConfigurationProvider(source);
-
-        using var listener = StartActivityListener(
-            out _,
-            onStopped: activity =>
-            {
-                if (activity.OperationName == ActivityDescriptors.LoadActivityName)
-                {
-                    provider.Dispose();
-                    if (listenerThrows)
-                    {
-                        throw new InvalidOperationException("listener failed");
-                    }
-                }
-            });
-
-        // act
-        var ex = await Assert.That(() => provider.Load()).ThrowsExactly<ObjectDisposedException>();
-
-        // assert
-        await Assert.That(ex!.InnerException).IsNull();
-        await Assert.That(provider.CurrentVersionId).IsNull();
-        await Assert.That(provider.TryGet("Key", out _)).IsFalse();
-        await Assert.That(loadFailures).IsEqualTo(1);
     }
 
     private static async Task AssertWatcherNotStartedWhenConcurrentDisposeIsInProgress(bool libraryOwned)
@@ -1505,7 +1371,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
 
     private static ActivityListener StartActivityListener(
         out ConcurrentBag<Activity> activities,
-        Action<Activity>? onStarted = null,
         Action<Activity>? onStopped = null)
     {
         var stopped = new ConcurrentBag<Activity>();
@@ -1515,13 +1380,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
         {
             ShouldListenTo = source => source.Name == ActivityDescriptors.ActivitySourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStarted = activity =>
-            {
-                if (scope is not null && ReferenceEquals(ListenerScope.Value, scope))
-                {
-                    onStarted?.Invoke(activity);
-                }
-            },
             ActivityStopped = activity =>
             {
                 stopped.Add(activity);
