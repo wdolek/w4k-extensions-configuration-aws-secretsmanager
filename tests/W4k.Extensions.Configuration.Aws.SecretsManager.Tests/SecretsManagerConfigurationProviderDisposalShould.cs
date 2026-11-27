@@ -747,8 +747,6 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(watcher.StopCalls).IsEqualTo(1);
     }
 
-    #endregion
-
     [Test]
     public async Task StopCallerOwnedWatcherOnceWhenCancellationRegistrationThrowsDuringDispose() =>
         await AssertWatcherReleasedWhenCancellationRegistrationThrows(libraryOwned: false);
@@ -756,6 +754,9 @@ public class SecretsManagerConfigurationProviderDisposalShould
     [Test]
     public async Task StopAndDisposeLibraryOwnedWatcherOnceWhenCancellationRegistrationThrowsDuringDispose() =>
         await AssertWatcherReleasedWhenCancellationRegistrationThrows(libraryOwned: true);
+
+    #endregion
+
     #region Disposal during reload
 
     [Test]
@@ -1031,10 +1032,12 @@ public class SecretsManagerConfigurationProviderDisposalShould
     public async Task ReturnNormallyAndSkipSuccessLoggingWhenChangeNotificationDisposesProviderDuringLoad()
     {
         // arrange
+        var secretName = NewSecretName();
+        using var activityListener = StartActivityListener(out var activities);
         var loggers = new RecordingLoggerFactory { ThrowOnLog = true };
         var watcher = new RecordingWatcher();
 
-        var source = NewSource(ConstantClient(FirstSecret));
+        var source = NewSource(ConstantClient(FirstSecret), secretName);
         source.LoggerFactory = loggers;
         source.ConfigurationWatcher = watcher;
 
@@ -1051,6 +1054,10 @@ public class SecretsManagerConfigurationProviderDisposalShould
         await Assert.That(loggers.Events).DoesNotContain("SecretLoaded");
         await Assert.That(watcher.StartCalls).IsEqualTo(0);
         await Assert.That(watcher.StopCalls).IsEqualTo(0);
+
+        var activity = FindActivity(activities, ActivityDescriptors.LoadActivityName, secretName);
+        await Assert.That(activity).IsNotNull();
+        await Assert.That(activity!.Events.Any(e => e.Name == "disposed")).IsTrue();
     }
 
     [Test]

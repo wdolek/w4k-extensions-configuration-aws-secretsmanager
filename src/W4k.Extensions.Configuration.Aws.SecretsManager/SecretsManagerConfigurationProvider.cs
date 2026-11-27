@@ -155,7 +155,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         Activity? activity = null;
         ILogger? logger = null;
         var published = false;
-        var discarded = false;
 
         try
         {
@@ -180,14 +179,17 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
             if (!published)
             {
-                discarded = true;
                 activity?.AddEvent(new ActivityEvent("disposed"));
             }
             else
             {
                 OnReload();
 
-                if (!IsDisposed)
+                if (IsDisposed)
+                {
+                    activity?.AddEvent(new ActivityEvent("disposed"));
+                }
+                else
                 {
                     activity?
                         .AddEvent(new ActivityEvent("loaded"))
@@ -204,7 +206,6 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         {
             // late failure, nobody is interested anymore
             activity?.AddEvent(new ActivityEvent("disposed"));
-            discarded = !published;
         }
         catch (Exception ex)
         {
@@ -222,7 +223,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             DisposeActivity(activity);
         }
 
-        ObjectDisposedException.ThrowIf(discarded || (!published && IsDisposed), this);
+        ObjectDisposedException.ThrowIf(!published && IsDisposed, this);
     }
 
     /// <inheritdoc/>
