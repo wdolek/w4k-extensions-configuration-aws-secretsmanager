@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -9,13 +9,16 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 /// <summary>
 /// AWS Secrets Manager configuration provider.
 /// </summary>
-public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider
+public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider, ISecretsManagerConfigurationProvider, IDisposable
 {
     private const string SecretIdTagName = "aws.secretsmanager.secret.id";
     private const string VersionIdTagName = "aws.secretsmanager.secret.version_id";
 
     private readonly SecretFetcher _secretFetcher;
+    private readonly WatcherLifetime? _watcher;
+    private readonly CancellationTokenSource _disposeCts = new();
 
+    private int _disposed;
     private int _reloadInProgress;
     private string? _currentSecretVersionId;
     private long _lastLoadedUtcTicks;
@@ -29,6 +32,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         ArgumentNullException.ThrowIfNull(source);
 
         _secretFetcher = new SecretFetcher(source.SecretsManager);
+        _watcher = WatcherLifetime.From(source);
         Source = source;
     }
 
@@ -61,18 +65,41 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         }
     }
 
+    private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
     /// <inheritdoc/>
-    public override string ToString() => $"{GetType().Name}: {Source.SecretName}";
+    public override string ToString() => $"{nameof(SecretsManagerConfigurationProvider)}: {Source.SecretName}";
+
+    /// <summary>
+    /// Stops the configuration watcher and cancels any secret fetch in progress.
+    /// </summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _disposeCts.Cancel();
+        }
+        finally
+        {
+            _disposeCts.Dispose();
+            _watcher?.Dispose();
+        }
+    }
 
     /// <inheritdoc cref="ConfigurationProvider.Load"/>
+    /// <exception cref="ObjectDisposedException">Thrown when the provider has been disposed.</exception>
     public override void Load()
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+
         var secretName = Source.SecretName;
         var secretVersion = Source.Version;
         var secretProcessor = Source.Processor;
-        var watcher = Source.ConfigurationWatcher;
-
-        var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.LoadActivityName);
         activity?.SetTag(SecretIdTagName, secretName);
@@ -80,19 +107,21 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
         var secretIdTag = new KeyValuePair<string, object?>(SecretIdTagName, secretName);
         MeterDescriptors.Loads.Add(1, secretIdTag);
 
+        ILogger? logger = null;
+        var loaded = false;
+
         try
         {
-            using var cts = new CancellationTokenSource(Source.Timeout);
-            var secret = Task
-                .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
-                .GetAwaiter()
-                .GetResult();
+            logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
+            var secret = FetchSecret(secretName, secretVersion);
             activity?.SetTag(VersionIdTagName, secret.VersionId);
 
-            SetData(
-                versionId: secret.VersionId,
-                data: secretProcessor.GetConfigurationData(Source, secret.Value));
+            var data = secretProcessor.GetConfigurationData(Source, secret.Value);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+            SetData(versionId: secret.VersionId, data: data);
+            loaded = true;
 
             activity?
                 .AddEvent(new ActivityEvent("loaded"))
@@ -101,7 +130,15 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
             logger.SecretLoaded(secretName, secret.VersionId);
 
             // requires initial load to succeed (even when secret is optional)
-            watcher?.StartWatching(this);
+            _watcher?.EnsureStarted(this);
+        }
+        catch (ObjectDisposedException) when (!loaded && IsDisposed)
+        {
+            throw;
+        }
+        catch (Exception) when (IsDisposed)
+        {
+            ObjectDisposedException.ThrowIf(!loaded, this);
         }
         catch (Exception ex)
         {
@@ -111,7 +148,7 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .AddException(ex)
                 .SetStatus(ActivityStatusCode.Error, "Error loading secret");
 
-            logger.FailedToLoadSecret(ex, secretName);
+            logger?.FailedToLoadSecret(ex, secretName);
             HandleException(ex, Source.OnLoadException);
         }
     }
@@ -119,35 +156,48 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
     /// <inheritdoc/>
     public void Reload()
     {
-        if (Interlocked.Exchange(ref _reloadInProgress, 1) == 1)
+        if (IsDisposed || Interlocked.Exchange(ref _reloadInProgress, 1) == 1)
         {
             return;
         }
 
+        try
+        {
+            ReloadCore();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _reloadInProgress, 0);
+        }
+    }
+
+    private void ReloadCore()
+    {
         var secretName = Source.SecretName;
         var secretVersion = Source.Version;
         var secretProcessor = Source.Processor;
-
-        var logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
         using var activity = ActivityDescriptors.Source.StartActivity(ActivityDescriptors.ReloadActivityName);
         activity?.SetTag(SecretIdTagName, secretName);
 
         var secretIdTag = new KeyValuePair<string, object?>(SecretIdTagName, secretName);
+        ILogger? logger = null;
 
         try
         {
-            using var cts = new CancellationTokenSource(Source.Timeout);
-            var secret = Task
-                .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
-                .GetAwaiter()
-                .GetResult();
+            logger = Source.LoggerFactory.CreateLogger<SecretsManagerConfigurationProvider>();
 
+            var secret = FetchSecret(secretName, secretVersion);
             activity?.SetTag(VersionIdTagName, secret.VersionId);
 
             var currentVersionId = Volatile.Read(ref _currentSecretVersionId);
             if (string.Equals(secret.VersionId, currentVersionId, StringComparison.Ordinal))
             {
+                if (IsDisposed)
+                {
+                    return;
+                }
+
                 MeterDescriptors.ReloadsSkipped.Add(1, secretIdTag);
 
                 activity?
@@ -158,10 +208,14 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 return;
             }
 
+            var data = secretProcessor.GetConfigurationData(Source, secret.Value);
+            if (IsDisposed)
+            {
+                return;
+            }
+
             var previousVersionId = currentVersionId;
-            SetData(
-                versionId: secret.VersionId,
-                data: secretProcessor.GetConfigurationData(Source, secret.Value));
+            SetData(versionId: secret.VersionId, data: data);
 
             MeterDescriptors.Reloads.Add(1, secretIdTag);
 
@@ -171,6 +225,9 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
             logger.SecretRefreshed(secretName, previousVersionId ?? "N/A", secret.VersionId);
         }
+        catch (Exception) when (IsDisposed)
+        {
+        }
         catch (Exception ex)
         {
             MeterDescriptors.ReloadFailures.Add(1, secretIdTag);
@@ -179,12 +236,8 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
                 .AddException(ex)
                 .SetStatus(ActivityStatusCode.Error, "Error reloading secret");
 
-            logger.FailedToRefreshSecret(ex, secretName);
+            logger?.FailedToRefreshSecret(ex, secretName);
             HandleException(ex, Source.OnReloadException);
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _reloadInProgress, 0);
         }
     }
 
@@ -211,6 +264,17 @@ public sealed class SecretsManagerConfigurationProvider : ConfigurationProvider,
 
             exceptionDispatchInfo.Throw();
         }
+    }
+
+    private SecretValue FetchSecret(string secretName, SecretVersion? secretVersion)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
+        cts.CancelAfter(Source.Timeout);
+
+        return Task
+            .Run(() => _secretFetcher.GetSecret(secretName, secretVersion, cts.Token), cts.Token)
+            .GetAwaiter()
+            .GetResult();
     }
 
     private void SetData(string versionId, Dictionary<string, string?> data)

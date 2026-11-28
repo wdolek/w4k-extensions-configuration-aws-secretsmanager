@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Amazon.SecretsManager;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +14,7 @@ namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 public sealed class SecretsManagerConfigurationSource : IConfigurationSource
 {
     private bool _built;
+    private Func<IConfigurationWatcher>? _watcherFactory;
 
     /// <summary>
     /// Gets or sets secret name (or its complete ARN) to fetch.
@@ -71,7 +72,21 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
     /// <summary>
     /// Gets or sets configuration change watcher.
     /// </summary>
-    public IConfigurationWatcher? ConfigurationWatcher { get; set; }
+    /// <remarks>
+    /// A watcher assigned here is owned by the caller: the provider stops it when disposed,
+    /// but does not dispose the watcher itself.
+    /// </remarks>
+    public IConfigurationWatcher? ConfigurationWatcher
+    {
+        get => field;
+        set
+        {
+            field = value;
+            _watcherFactory = null;
+        }
+    }
+
+    internal Func<IConfigurationWatcher>? WatcherFactory => _watcherFactory;
 
     /// <summary>
     /// The timeout for the secret fetch operation.
@@ -133,6 +148,16 @@ public sealed class SecretsManagerConfigurationSource : IConfigurationSource
         KeyTransformersSnapshot = KeyTransformers.ToArray();
 
         return new SecretsManagerConfigurationProvider(this);
+    }
+
+    internal void UsePollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter, TimeProvider timeProvider)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(pollingInterval, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxJitter, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        ConfigurationWatcher = null;
+        _watcherFactory = () => new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider);
     }
 }
 
@@ -283,6 +308,10 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <summary>
     /// Sets <see cref="IConfigurationWatcher"/> to watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// A watcher passed here is owned by the caller: the provider stops it when disposed,
+    /// but does not dispose the watcher itself.
+    /// </remarks>
     /// <param name="configurationWatcher">Configuration watcher.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configurationWatcher"/> is <see langword="null"/>.</exception>
@@ -297,45 +326,48 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The polling watcher is created and owned by the provider, and is stopped and disposed together with it.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/>.</exception>
-    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval)
-    {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval);
-        return this;
-    }
+    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval) =>
+        WithPollingWatcher(pollingInterval, TimeSpan.Zero, TimeProvider.System);
 
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The polling watcher is created and owned by the provider, and is stopped and disposed together with it.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="timeProvider">Time provider.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less or equal to <see cref="TimeSpan.Zero"/>.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
-    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeProvider timeProvider)
-    {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, timeProvider);
-        return this;
-    }
+    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeProvider timeProvider) =>
+        WithPollingWatcher(pollingInterval, TimeSpan.Zero, timeProvider);
 
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The polling watcher is created and owned by the provider, and is stopped and disposed together with it.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
     /// <returns>Current builder instance.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="pollingInterval"/> is less than or equal to <see cref="TimeSpan.Zero"/> or <paramref name="maxJitter"/> is less than <see cref="TimeSpan.Zero"/>.</exception>
-    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter)
-    {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter);
-        return this;
-    }
+    public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter) =>
+        WithPollingWatcher(pollingInterval, maxJitter, TimeProvider.System);
 
     /// <summary>
     /// Sets <see cref="SecretsManagerPollingWatcher"/> to periodically watch for configuration changes.
     /// </summary>
+    /// <remarks>
+    /// The polling watcher is created and owned by the provider, and is stopped and disposed together with it.
+    /// </remarks>
     /// <param name="pollingInterval">Polling interval.</param>
     /// <param name="maxJitter">Maximum positive jitter applied to the polling interval.</param>
     /// <param name="timeProvider">Time provider.</param>
@@ -344,7 +376,7 @@ public sealed class SecretsManagerConfigurationBuilder
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SecretsManagerConfigurationBuilder WithPollingWatcher(TimeSpan pollingInterval, TimeSpan maxJitter, TimeProvider timeProvider)
     {
-        _source.ConfigurationWatcher = new SecretsManagerPollingWatcher(pollingInterval, maxJitter, timeProvider);
+        _source.UsePollingWatcher(pollingInterval, maxJitter, timeProvider);
         return this;
     }
 

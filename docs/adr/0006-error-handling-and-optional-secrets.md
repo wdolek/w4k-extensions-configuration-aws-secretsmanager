@@ -55,3 +55,9 @@ Default behaviour is to throw, i.e. fail fast at startup.
   configuring `OnReloadException` is effectively required when using a watcher.
 - Wrapping means callers cannot use exception filters on the SDK type at the
   catch site without unwrapping `InnerException`.
+
+> **Amendment (see [ADR-0019](0019-provider-disposal-stops-its-watcher.md)):**
+> once the provider is disposed, `Reload()` is a no-op and failures observed by
+> an in-flight reload after disposal are ignored rather than logged, counted or
+> passed to `OnReloadException`. `Load()` called on or interrupted by a disposed
+> provider throws `ObjectDisposedException`.

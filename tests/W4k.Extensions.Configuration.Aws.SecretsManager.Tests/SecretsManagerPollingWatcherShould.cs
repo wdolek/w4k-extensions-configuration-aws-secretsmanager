@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Time.Testing;
+using Microsoft.Extensions.Time.Testing;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -125,5 +125,89 @@ public class SecretsManagerPollingWatcherShould
         // 3rd refresh: rescheduling continues
         _timeProvider.Advance(interval.Add(maxJitter));
         provider.Reload().WasCalled(Times.Exactly(3));
+    }
+
+    [Test]
+    public async Task ThrowWhenProviderIsNull()
+    {
+        // arrange
+        using var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
+
+        // act & assert
+        await Assert.That(() => watcher.StartWatching(null!)).ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task ThrowObjectDisposedWhenStartedAfterDispose()
+    {
+        // arrange
+        var provider = ISecretsManagerConfigurationProvider.Mock();
+        var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
+        watcher.StartWatching(provider);
+
+        // act
+        watcher.Dispose();
+
+        // assert
+        await Assert.That(() => watcher.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+    }
+
+    [Test]
+    public async Task ThrowObjectDisposedWhenStartedAfterDisposeAsync()
+    {
+        // arrange
+        var provider = ISecretsManagerConfigurationProvider.Mock();
+        var watcher = new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5), _timeProvider);
+
+        // act
+        await watcher.DisposeAsync();
+
+        // assert
+        await Assert.That(() => watcher.StartWatching(provider)).ThrowsExactly<ObjectDisposedException>();
+    }
+
+    [Test]
+    public async Task NotExecuteReloadAfterDispose()
+    {
+        // arrange
+        var interval = TimeSpan.FromMinutes(5);
+        var provider = ISecretsManagerConfigurationProvider.Mock();
+        var watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
+        watcher.StartWatching(provider);
+
+        // act
+        watcher.Dispose();
+        watcher.Dispose();
+        watcher.StopWatching();
+        _timeProvider.Advance(interval * 3);
+
+        // assert
+        provider.Reload().WasCalled(Times.Exactly(0));
+    }
+
+    [Test]
+    public async Task NotExecuteReloadAgainWhenDisposedFromReloadCallback()
+    {
+        // arrange
+        var interval = TimeSpan.FromMinutes(5);
+        SecretsManagerPollingWatcher? watcher = null;
+
+        var reloadCalls = 0;
+        var provider = ISecretsManagerConfigurationProvider.Mock();
+        provider.Reload().Callback(() =>
+        {
+            reloadCalls++;
+            watcher!.Dispose();
+        });
+
+        watcher = new SecretsManagerPollingWatcher(interval, _timeProvider);
+        watcher.StartWatching(provider);
+
+        // act
+        _timeProvider.Advance(interval.Add(TimeSpan.FromSeconds(1)));
+        _timeProvider.Advance(interval * 3);
+
+        // assert
+        await Assert.That(reloadCalls).IsEqualTo(1);
     }
 }

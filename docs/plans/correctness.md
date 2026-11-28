@@ -382,3 +382,43 @@ Call it out in release notes.
   (e.g. `[0xC3, 0x28]`) throws; valid UTF-8 payload still decodes.
 - Integration test optional (a `SecretBinary` secret with non-UTF-8 bytes),
   follows the C1 pattern.
+
+---
+
+## C8. Disposing the configuration does not stop the watcher
+
+**Status:** done · **Breaking:** behavioural (refresh stops on disposal) · **Effort:** M
+**Decision:** [ADR-0019](../adr/0019-provider-disposal-stops-its-watcher.md)
+
+### Why
+
+`SecretsManagerConfigurationProvider` did not implement `IDisposable`, so
+disposing a `ConfigurationRoot` or `ConfigurationManager` left the polling
+timer running, rooted the provider and its dependencies, and could invoke a
+disposed AWS client or logger factory on a timer thread (work item #143).
+
+Two latent defects are fixed alongside it:
+
+- `IConfigurationRoot.Reload()` called `Load()` again, calling `StartWatching`
+  a second time and failing with "already started".
+- `Reload()` created the logger and activity outside the `try/finally` that
+  resets `_reloadInProgress`, permanently wedging reloads if logger creation
+  threw.
+
+### Change
+
+1. **`SecretsManagerConfigurationSource`:** `WithPollingWatcher(...)` validates
+   arguments and sets an internal factory (`UsePollingWatcher`), clearing
+   `ConfigurationWatcher`; setting `ConfigurationWatcher` clears the factory.
+   No `IDisposable` watcher is instantiated on the source.
+2. **`WatcherLifetime`:** internal collaborator encapsulating watcher creation,
+   optional `IDisposable` ownership (`_ownedResource`), once-only start, and
+   stop/dispose on provider disposal without holding locks across external
+   watcher calls.
+3. **`SecretsManagerConfigurationProvider`:** implements `IDisposable`, cancels
+   any in-flight fetch via `_disposeCts`, disposes `_watcher`, ignores
+   post-disposal reloads, throws `ObjectDisposedException` from `Load()` when
+   disposed, and resets `_reloadInProgress` in an outer `try/finally`.
+4. **`SecretsManagerPollingWatcher`:** synchronizes `StartWatching`,
+   `StopWatching`, `Dispose`, `DisposeAsync` and `Reschedule` under a `Lock`,
+   throwing `ObjectDisposedException` if started after disposal.
