@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 namespace W4k.Extensions.Configuration.Aws.SecretsManager;
 
@@ -10,8 +10,10 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     private readonly TimeSpan _interval;
     private readonly TimeSpan _maxJitter;
     private readonly TimeProvider _clock;
+    private readonly Lock _lock = new();
 
     private ITimer? _timer;
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SecretsManagerPollingWatcher"/> class.
@@ -66,37 +68,43 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
     }
 
     /// <inheritdoc/>
-    public void Dispose() => _timer?.Dispose();
+    public void Dispose() => DetachTimer(markDisposed: true)?.Dispose();
 
     /// <inheritdoc/>
-    public async ValueTask DisposeAsync()
-    {
-        if (_timer is not null)
-        {
-            await _timer.DisposeAsync();
-        }
-    }
+    public ValueTask DisposeAsync() =>
+        DetachTimer(markDisposed: true)?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="provider"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when watcher is disposed.</exception>
     /// <exception cref="InvalidOperationException">Thrown when watcher is already started.</exception>
     public void StartWatching(ISecretsManagerConfigurationProvider provider)
     {
-        ThrowIfStarted(_timer);
-        _timer = _clock.CreateTimer(ExecuteReload, provider, GetNextInterval(), Timeout.InfiniteTimeSpan);
+        ArgumentNullException.ThrowIfNull(provider);
+
+        lock (_lock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfStarted(_timer);
+
+            _timer = _clock.CreateTimer(ExecuteReload, provider, GetNextInterval(), Timeout.InfiniteTimeSpan);
+        }
     }
 
     /// <inheritdoc/>
-    public void StopWatching()
+    public void StopWatching() => DetachTimer(markDisposed: false)?.Dispose();
+
+    private ITimer? DetachTimer(bool markDisposed)
     {
-        if (_timer is null)
+        lock (_lock)
         {
-            return;
+            _disposed |= markDisposed;
+
+            var timer = _timer;
+            _timer = null;
+
+            return timer;
         }
-
-        _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        _timer.Dispose();
-
-        _timer = null;
     }
 
     private void ExecuteReload(object? state)
@@ -114,9 +122,15 @@ public sealed class SecretsManagerPollingWatcher : IConfigurationWatcher, IDispo
 
     private void Reschedule()
     {
+        ITimer? timer;
+        lock (_lock)
+        {
+            timer = _timer;
+        }
+
         try
         {
-            _timer?.Change(GetNextInterval(), Timeout.InfiniteTimeSpan);
+            timer?.Change(GetNextInterval(), Timeout.InfiniteTimeSpan);
         }
         catch (ObjectDisposedException)
         {

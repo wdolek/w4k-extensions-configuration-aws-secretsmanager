@@ -240,20 +240,22 @@ source.ClearKeyTransformers();
 
 ### Refreshing secrets
 
-By default, secrets are not refreshed. In order to enable refreshing, you can set configuration watcher:
+By default, secrets are not refreshed. In order to enable refreshing, configure a polling watcher:
 
 ```csharp
-// implements `IConfigurationWatcher`
+// uses library-managed `SecretsManagerPollingWatcher`
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    source => source.WithConfigurationWatcher(new SecretsManagerPollingWatcher(TimeSpan.FromMinutes(5)));
+    source => source.WithPollingWatcher(TimeSpan.FromMinutes(5)));
 ```
 
+Or provide a custom `IConfigurationWatcher` implementation:
+
 ```csharp
-// uses `SecretsManagerPollingWatcher`
+// implements `IConfigurationWatcher` (caller-owned)
 builder.Configuration.AddSecretsManager(
     "my-secret-secrets",
-    source => source.WithPollingWatcher(TimeSpan.FromMinutes(5));
+    source => source.WithConfigurationWatcher(new MyCustomConfigurationWatcher()));
 ```
 
 When many instances poll at the same interval (a fleet of pods, for example), they can synchronize
@@ -273,6 +275,13 @@ Refer to the [AWS Secrets Manager pricing](https://aws.amazon.com/secrets-manage
 
 > [!IMPORTANT]
 > Watcher is started **ONLY** when initial load is successful.
+
+#### Lifetime
+
+Disposing the configuration root (or the host owning it) disposes the provider, cancelling any secret fetch in progress and stopping the watcher:
+
+- Watchers configured via `WithPollingWatcher(...)` are created and owned by the provider, and are both stopped and disposed.
+- Watchers supplied via `WithConfigurationWatcher(...)` or `ConfigurationWatcher` remain owned by the caller — the provider stops them, but does not dispose them.
 
 ### Last load state
 
